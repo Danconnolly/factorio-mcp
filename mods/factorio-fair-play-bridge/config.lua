@@ -19,7 +19,7 @@ config.MAX_OBSERVATION_PAYLOAD_BYTES = 32 * 1024
 function config.startup_actor_id()
   local configured = settings.startup[config.ACTOR_ID_SETTING]
   local actor_id = configured and configured.value or config.DEFAULT_ACTOR_ID
-  if type(actor_id) ~= "string" or not actor_id:match("^[a-z][a-z0-9_-]{0,31}$") then
+  if type(actor_id) ~= "string" or #actor_id > 32 or not actor_id:match("^[a-z][a-z0-9_-]*$") then
     error("factorio-fair-play-bridge: actor ID must match [a-z][a-z0-9_-]{0,31}")
   end
   return actor_id
