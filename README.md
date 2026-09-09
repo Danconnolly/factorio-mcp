@@ -65,8 +65,9 @@ vanilla rocket-launch comparison runs.
 ## Developer prerequisites
 
 - Rust 1.98.1 (pinned in `rust-toolchain.toml`) with Cargo, rustfmt and Clippy.
-- A licensed Factorio 2.x headless-server distribution before running Factorio
-  integration tests. The local fixture must use a disposable copy of a save.
+- A Factorio 2.x headless-server distribution before running integration tests.
+  Factorio provides a free Linux headless server; the fixture must use a
+  disposable copy of a save.
 - An RCON endpoint and password only when later bridge integration is enabled;
   keep them outside the repository, for example in a local `.env` file.
 
@@ -85,7 +86,8 @@ cargo test --workspace
 
 The presence of this skeleton is not evidence of virtual-character equivalence
 or of fair play. Those claims remain gated on the documented Phase-0 lifecycle,
-observation and real-player differential tests.
+observation and manual real-player differential tests. The latter are a release
+gate, not part of CI or automated deployment.
 
 ## License
 

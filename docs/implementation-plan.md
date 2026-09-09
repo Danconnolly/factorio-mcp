@@ -59,6 +59,12 @@ If the required movement, mining, crafting, building, death, inventory, or relev
 - Runs human-isolation tests with both actors present.
 - Never uses the valued shared save until the release gates are satisfied.
 
+The server lifecycle, observation and transport checks may be automated against
+the disposable headless fixture. The real-client differential probes are a
+manual release gate for now: an operator performs the prescribed scenarios and
+retains the resulting probe records. They are deliberately excluded from CI and
+deployment automation; missing manual evidence is a blocked gate, not a pass.
+
 ### Harness boundary
 
 This repository supplies controller correctness and reproducible integration
@@ -78,7 +84,8 @@ Deliver:
 4. Bounded, chart-aware read-only observation.
 5. Capability manifest containing only read operations.
 6. Structured, append-only audit-receipt format.
-7. Differential-test harness with a dedicated test client.
+7. Manual differential-test procedure with a dedicated real client and retained
+   probe evidence.
 8. Versioned capability contract, structured error codes and action-ID lifecycle
    contract.
 9. Vanilla rocket-path capability coverage matrix.
