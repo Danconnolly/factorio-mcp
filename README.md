@@ -16,8 +16,13 @@ contains the requirements, open-source assessment, implementation plan, tested
 Factorio 2.1 bridge shell, versioned capability contract, bounded read-only MCP
 service and tamper-evident audit sink. Automated disposable-fixture gates and
 the manual real-client human-isolation check passed; see
-[Phase-0 completion record](docs/phase-0-completion.md). It exposes no gameplay
-controls. No gameplay controller should be attached to a valued save at this
+[Phase-0 completion record](docs/phase-0-completion.md).
+
+Phase 1 / walk-stop complete: the bounded `walk_to` and `stop` slice passed its
+automated disposable fixture and manual real-client movement/collision
+differential gate. See the [Phase-1 walk/stop completion
+record](docs/phase-1-walk-stop-completion.md). Only this primitive has been
+promoted; no gameplay controller should be attached to a valued save at this
 stage.
 
 ## Design constraints
@@ -52,6 +57,8 @@ stage.
   mandatory manual evidence and Go/Pivot decision procedure.
 - [Phase-0 completion record](docs/phase-0-completion.md) — retained summary of
   the completed read-only feasibility gate and Phase-1 promotion boundary.
+- [Phase-1 walk/stop completion record](docs/phase-1-walk-stop-completion.md)
+  — retained, sanitized evidence for the P1-04 movement promotion gate.
 - [Optional Kubernetes fixture](docs/kubernetes-fixture.md) — opt-in,
   default-scheduled disposable-server provider for the ignored integration
   checks; it is not required for unit tests.

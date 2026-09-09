@@ -1,12 +1,12 @@
-# Phase-0 Fair-Play Contract Protocol
+# Factorio Agent Bridge Contract Protocol
 
 `factorio-agent-contract` is transport-independent. A bridge or MCP transport must first
-return a `CapabilityContract` with `schema_version = "0.1.0"`; clients must reject a
+return a `CapabilityContract` with `schema_version = "0.2.0"`; clients must reject a
 version they do not support.
 
-## Read-only capability surface
+## Phase-1 capability surface
 
-The Phase-0 allow-list is exact:
+The Phase-1 walk/stop allow-list is exact:
 
 1. `get_capability_contract`
 2. `get_actor_status`
@@ -14,9 +14,14 @@ The Phase-0 allow-list is exact:
 4. `scan_charted`
 5. `get_entity`
 6. `get_action_record`
+7. `walk_to`
+8. `stop`
+9. `get_action`
 
-No mutation, raw RCON, Lua, reset, teleport, item-grant, speed, or global-inspection
-capability exists in this profile. Additions require a new fair-play policy version.
+Apart from `walk_to` and `stop`, no gameplay mutation is available. In particular,
+no raw RCON, Lua, reset, teleport, item-grant, speed, mining, crafting, placement,
+transfer, research, or global-inspection capability exists in this profile.
+Additions require a new fair-play policy version.
 
 ## Contract fields and provenance
 
@@ -67,15 +72,19 @@ Errors have a stable `ErrorCode` for programs and a separate `detail` string for
 people: `INVALID_ARGUMENT`, `ACTOR_UNAVAILABLE`, `OUT_OF_POLICY`, `UNCHARTED`,
 `NOT_FOUND`, `BRIDGE_UNAVAILABLE`, `VERSION_MISMATCH`, and `INTERNAL`.
 
-## Audit chain
+## Audit chain and action receipts
 
-`AuditRecord` has only `lifecycle` and `observation` variants. It is not a mutation
-receipt format. Each append produces an envelope with a zero-based `sequence`, the
-previous envelope digest, SHA-256 digest of canonical record JSON, caller-supplied
-timestamp, and digest of the envelope link metadata. Canonical JSON recursively sorts
-object keys and emits no insignificant whitespace. The chain hashes no credentials,
-chat, inventory contents, player names, or unrelated-player data; those fields are not
-represented by the Phase-0 audit model.
+`AuditRecord` has `lifecycle`, `observation`, and durable action-receipt variants.
+Every `walk_to` and `stop` request is retained by caller-supplied action ID before it
+is acknowledged. A receipt includes the actor/action IDs, action sequence, request
+fingerprint, policy and build context, lifecycle state/result, relevant ticks,
+positions and health, explicit inventory delta, and affected entity IDs.
+
+Each append produces an envelope with a zero-based `sequence`, the previous envelope
+digest, SHA-256 digest of canonical record JSON, caller-supplied timestamp, and digest
+of the envelope link metadata. Canonical JSON recursively sorts object keys and emits
+no insignificant whitespace. The chain hashes no credentials, chat, player names, or
+unrelated-player data.
 
 Lifecycle records serialize exactly one of `accepted`, `running`, `succeeded`,
 `rejected`, `cancelled`, or `failed`.
