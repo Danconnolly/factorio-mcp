@@ -162,7 +162,7 @@ end
 function policy.bound_payload(result)
   policy.sort_results(result)
   local count = #result.entities + #result.resources + #result.tiles
-  while count > config.MAX_OBSERVATION_RESULTS or #game.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES do
+  while count > config.MAX_OBSERVATION_RESULTS or #helpers.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES do
     if #result.tiles > 0 then
       table.remove(result.tiles)
     elseif #result.resources > 0 then
@@ -177,7 +177,7 @@ function policy.bound_payload(result)
     count = #result.entities + #result.resources + #result.tiles
   end
   result.result_count = count
-  result.payload_bytes = #game.table_to_json(result)
+  result.payload_bytes = #helpers.table_to_json(result)
   return result
 end
 

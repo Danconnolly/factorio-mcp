@@ -1,4 +1,5 @@
 local config = require("config")
+local audit = require("audit")
 local policy = require("scripts.observation_policy")
 
 local read_only = {}
@@ -50,13 +51,12 @@ local function collect(surface, bounds, provenance, result)
       end
     end
   end
-  for _, tile in pairs(surface.get_tiles(area)) do
+  for _, tile in pairs(surface.find_tiles_filtered({ area = area })) do
     result.tiles[#result.tiles + 1] = policy.tile_record(tile, provenance)
   end
 end
 
 local function audit_observation(name, requested, result)
-  local audit = require("audit")
   audit.observation(name, requested, result.effective_bounds, result.provenance, result.result_count, result.truncated)
 end
 
@@ -80,6 +80,17 @@ function read_only.actor_status(character, lifecycle_state)
   }
 end
 
+local function enabled_mods()
+  local mods = {}
+  for name, version in pairs(script.active_mods) do
+    mods[#mods + 1] = { name = name, version = version }
+  end
+  table.sort(mods, function(left, right)
+    return left.name < right.name
+  end)
+  return mods
+end
+
 function read_only.capability_contract(character)
   local status = read_only.actor_status(character, "ready")
   return {
@@ -87,7 +98,7 @@ function read_only.capability_contract(character)
     fair_play_policy_version = config.POLICY_VERSION,
     bridge_build = config.BRIDGE_BUILD,
     factorio_build = script.active_mods.base or "unknown",
-    enabled_mods = script.active_mods,
+    enabled_mods = enabled_mods(),
     actor_id = status.actor_id,
     force_id = status.force.name,
     profile_name = "phase-zero-read-only",

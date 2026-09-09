@@ -117,7 +117,7 @@ async fn enum_variants_use_the_same_fixed_bridge_interface() {
     let commands = received.lock().await;
     assert_eq!(commands.len(), 3);
     for command in commands.iter() {
-        assert!(command.payload.starts_with("/c rcon.print(game.table_to_json(remote.call(\"factorio_fair_play_bridge\",\"query\",helpers.json_to_table("));
+        assert!(command.payload.starts_with("/c rcon.print(helpers.table_to_json(remote.call(\"factorio_fair_play_bridge\",\"query\",helpers.json_to_table("));
         assert!(command.payload.ends_with("))))"));
         assert!(!command.payload.contains(SECRET));
     }
@@ -209,7 +209,7 @@ async fn request_data_is_escaped_inside_one_fixed_lua_literal() {
     ));
 
     let payload = &received.lock().await[1].payload;
-    let prefix = "/c rcon.print(game.table_to_json(remote.call(\"factorio_fair_play_bridge\",\"query\",helpers.json_to_table(";
+    let prefix = "/c rcon.print(helpers.table_to_json(remote.call(\"factorio_fair_play_bridge\",\"query\",helpers.json_to_table(";
     let literal = payload
         .strip_prefix(prefix)
         .unwrap()

@@ -108,7 +108,7 @@ impl BridgeCommand {
                 code: BridgeErrorCode::SerializationFailure,
             })?;
         let command = format!(
-            "/c rcon.print(game.table_to_json(remote.call(\"{BRIDGE_INTERFACE}\",\"{REMOTE_METHOD}\",helpers.json_to_table({lua_literal}))))"
+            "/c rcon.print(helpers.table_to_json(remote.call(\"{BRIDGE_INTERFACE}\",\"{REMOTE_METHOD}\",helpers.json_to_table({lua_literal}))))"
         );
         if command.len() > MAX_COMMAND_BYTES {
             return Err(RconError::Bridge {

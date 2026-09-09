@@ -74,8 +74,21 @@ fn remote_protocol_is_narrow_read_only_and_rejects_future_requests() {
         assert!(protocol.contains(capability), "protocol lacks {capability}");
     }
     assert!(protocol.contains("request arguments do not match the read-only capability"));
-    for field in ["state", "position", "health", "inventory", "tick", "bridge"] {
-        assert!(read_only.contains(field), "actor status lacks {field}");
+    for required in ["state", "position", "health", "inventory", "tick", "bridge"] {
+        assert!(
+            read_only.contains(required),
+            "actor status lacks {required}"
+        );
+    }
+    for required in [
+        "local function enabled_mods()",
+        "table.sort(mods",
+        "enabled_mods = enabled_mods()",
+    ] {
+        assert!(
+            read_only.contains(required),
+            "capability contract lacks deterministic enabled-mod output: {required}"
+        );
     }
 }
 
@@ -137,7 +150,7 @@ fn observation_policy_is_bridge_enforced_bounded_and_chart_aware() {
         "MAX_OBSERVATION_PAYLOAD_BYTES",
         "requested radius exceeds bridge observation policy",
         "force.is_chunk_charted(surface, { x = chunk_x, y = chunk_y })",
-        "#game.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES",
+        "#helpers.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES",
         "table.sort(result.entities, by_name_then_position)",
         "table.sort(result.resources, by_name_then_position)",
         "table.sort(result.tiles, by_name_then_position)",
@@ -159,8 +172,10 @@ fn observation_policy_is_bridge_enforced_bounded_and_chart_aware() {
         );
     }
     for required in [
+        "local audit = require(\"audit\")",
         "policy.local_bounds(character, request.radius)",
         "policy.require_charted(character.force, character.surface, bounds)",
+        "surface.find_tiles_filtered({ area = area })",
         "entity_id was not issued by a permitted bridge observation",
         "provenance = \"character_local\"",
         "provenance = \"force_charted\"",

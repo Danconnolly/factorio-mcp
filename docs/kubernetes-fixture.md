@@ -29,6 +29,22 @@ or `FACTORIO_OBSERVATION_FIXTURE`, respectively, plus
 `FACTORIO_DISPOSABLE_SAVE`. A runner may use Kubernetes, a local headless
 server, or another isolated provider that satisfies the same contract.
 
+This repository supplies `scripts/run-kubernetes-fixture.py` as the optional
+Kubernetes provider. Point both runner variables to that executable and point
+the save variable at a pre-existing copied Factorio save:
+
+```text
+export FACTORIO_DISPOSABLE_SAVE=/absolute/path/to/copied-fixture.zip
+export FACTORIO_LIFECYCLE_FIXTURE="$PWD/scripts/run-kubernetes-fixture.py"
+export FACTORIO_OBSERVATION_FIXTURE="$PWD/scripts/run-kubernetes-fixture.py"
+```
+
+The runner packages the checked-in bridge source, creates a unique namespace,
+copies the supplied save to a per-run PVC, verifies the bridge, writes an
+ignored local evidence bundle under `test-reports/`, and deletes the namespace
+in a `finally` cleanup path. It accepts no Lua, RCON command, bridge-interface,
+or bridge-method input; its fixture queries are a fixed allow-list.
+
 ## Kubernetes provider requirements
 
 A Kubernetes runner must create a unique, disposable namespace for each run and
