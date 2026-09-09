@@ -47,6 +47,9 @@ attached to a valued save at this stage.
   including the initial feasibility gate and release verification suite.
 - [Phase-0 differential procedure](docs/phase-0-differential-procedure.md) —
   mandatory manual evidence and Go/Pivot decision procedure.
+- [Optional Kubernetes fixture](docs/kubernetes-fixture.md) — opt-in,
+  default-scheduled disposable-server provider for the ignored integration
+  checks; it is not required for unit tests.
 
 ## Implementation direction
 
@@ -85,6 +88,12 @@ cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
+
+These checks never require a Factorio server, Kubernetes access, an RCON
+credential, or a save file. The lifecycle and observation tests are explicit
+`#[ignore]` integration gates; run them only through an operator-provided,
+disposable fixture as documented in
+[Optional Kubernetes fixture](docs/kubernetes-fixture.md).
 
 The presence of this skeleton is not evidence of virtual-character equivalence
 or of fair play. Those claims remain gated on the documented Phase-0 lifecycle,
