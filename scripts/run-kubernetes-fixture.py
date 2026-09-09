@@ -62,7 +62,7 @@ def package_bridge(target: Path) -> None:
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(MOD_ROOT.rglob("*")):
             if path.is_file():
-                archive.write(path, f"factorio-agent-bridge_0.1.0/{path.relative_to(MOD_ROOT).as_posix()}")
+                archive.write(path, f"factorio-agent-bridge_0.2.0/{path.relative_to(MOD_ROOT).as_posix()}")
 
 
 def sha256(path: Path) -> str:
@@ -133,7 +133,7 @@ def server_manifest(namespace: str) -> str:
                                 "initContainers": [{
                                     "name": "install-fixture-inputs",
                                     "image": "busybox:1.37.0",
-                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.1.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
+                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.2.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
                                     "volumeMounts": [{"name": "data", "mountPath": "/factorio"}, {"name": "bridge", "mountPath": "/source", "readOnly": True}, {"name": "rcon", "mountPath": "/secret", "readOnly": True}],
                                 }],
                                 "containers": [{
@@ -167,6 +167,7 @@ def fixed_query(namespace: str, pod: str, request: str) -> dict[str, Any]:
         "contract": '{name="get_capability_contract"}',
         "status": '{name="get_actor_status"}',
         "local": '{name="scan_local",radius=1}',
+        "maximum": '{name="scan_local",radius=32}',
         "over_limit": '{name="scan_local",radius=33}',
         "uncharted": '{name="scan_charted",center={x=1000000,y=1000000},radius=0}',
     }
@@ -183,6 +184,36 @@ def fixed_query(namespace: str, pod: str, request: str) -> dict[str, Any]:
         if line.startswith("{"):
             return json.loads(line)
     fail(f"fixed bridge query returned no JSON for {request}")
+    raise AssertionError("unreachable")
+
+
+def fixed_action(namespace: str, pod: str, action: str, *, target: dict[str, float] | None = None) -> dict[str, Any]:
+    """Call only the fixed Phase-1 action probe vocabulary.
+
+    Target coordinates derive solely from the preceding bridge status. The runner
+    accepts no caller-supplied Lua, action ID, interface, or method name.
+    """
+    if action == "walk_success":
+        assert target is not None
+        request = f'{{name="walk_to",action_id="fixture-walk-success",target={{x={target["x"]:.6f},y={target["y"]:.6f}}}}}'
+    elif action == "walk_stop":
+        assert target is not None
+        request = f'{{name="walk_to",action_id="fixture-walk-stop",target={{x={target["x"]:.6f},y={target["y"]:.6f}}}}}'
+    elif action == "stop":
+        request = '{name="stop",action_id="fixture-stop"}'
+    elif action == "get_success":
+        request = '{name="get_action",action_id="fixture-walk-success"}'
+    elif action == "get_stop":
+        request = '{name="get_action",action_id="fixture-walk-stop"}'
+    else:
+        fail(f"unknown fixed fixture action: {action}")
+    lua = f'/c rcon.print(helpers.table_to_json(remote.call("factorio_agent_bridge","command",{request})))'
+    output = kubectl(namespace, "exec", pod, "--", "rcon", lua)
+    for line in reversed(output.splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            return json.loads(line)
+    fail(f"fixed bridge action returned no JSON for {action}")
     raise AssertionError("unreachable")
 
 
@@ -221,6 +252,10 @@ def run_observation(namespace: str, pod: str, report: dict[str, Any], args: argp
     report["local_observation"] = local
     if local["effective_bounds"]["radius"] != 1 or local["result_count"] > args.assert_max_results or local["payload_bytes"] > args.assert_max_payload_bytes:
         fail("local observation exceeded declared bounds")
+    maximum = assert_ok(fixed_query(namespace, pod, "maximum"), "maximum local observation")
+    report["maximum_local_observation"] = maximum
+    if maximum["effective_bounds"]["radius"] != args.assert_local_radius or maximum["result_count"] > args.assert_max_results or maximum["payload_bytes"] > args.assert_max_payload_bytes:
+        fail("maximum local observation exceeded declared bounds")
     over_limit = fixed_query(namespace, pod, "over_limit")
     report["over_limit_observation"] = over_limit
     if over_limit.get("ok") is not False or over_limit.get("error", {}).get("code") != "OUT_OF_POLICY":
@@ -231,6 +266,41 @@ def run_observation(namespace: str, pod: str, report: dict[str, Any], args: argp
         fail("uncharted observation was not denied before lookup")
 
 
+def wait_for_action(namespace: str, pod: str, action: str) -> dict[str, Any]:
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        result = assert_ok(fixed_action(namespace, pod, action), action)
+        if result.get("state") in {"succeeded", "failed", "cancelled", "rejected"}:
+            return result
+        time.sleep(1)
+    fail(f"Phase-1 action {action} did not reach a terminal state")
+    raise AssertionError("unreachable")
+
+
+def run_walk_stop(namespace: str, pod: str, report: dict[str, Any]) -> None:
+    before = assert_ok(fixed_query(namespace, pod, "status"), "walk initial status")
+    start = before["position"]
+    accepted = assert_ok(fixed_action(namespace, pod, "walk_success", target={"x": start["x"] + 3.0, "y": start["y"]}), "walk acceptance")
+    if accepted.get("state") != "accepted":
+        fail(f"walk was not accepted: {accepted}")
+    completed = wait_for_action(namespace, pod, "get_success")
+    report["walk"] = completed
+    if completed.get("state") != "succeeded" or completed.get("result", {}).get("code") != "TARGET_REACHED":
+        fail(f"headless walk did not reach the target: {completed}")
+    if not isinstance(completed.get("start_tick"), int) or not isinstance(completed.get("end_tick"), int) or completed["end_tick"] <= completed["start_tick"]:
+        fail("walk receipt does not demonstrate elapsed game ticks")
+
+    end = completed["end_position"]
+    assert_ok(fixed_action(namespace, pod, "walk_stop", target={"x": end["x"] + 32.0, "y": end["y"]}), "stop walk acceptance")
+    stopped = assert_ok(fixed_action(namespace, pod, "stop"), "stop receipt")
+    cancelled = wait_for_action(namespace, pod, "get_stop")
+    report["stop"] = {"receipt": stopped, "cancelled_walk": cancelled}
+    if stopped.get("state") != "succeeded" or stopped.get("result", {}).get("code") != "STOPPED":
+        fail(f"stop did not produce a successful receipt: {stopped}")
+    if cancelled.get("state") != "cancelled" or cancelled.get("result", {}).get("code") != "STOP_REQUESTED":
+        fail(f"stop did not cancel the active walk: {cancelled}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--save", required=True, type=Path, help="copied disposable Factorio save")
@@ -238,6 +308,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assert-local-radius", type=int)
     parser.add_argument("--assert-max-results", type=int)
     parser.add_argument("--assert-max-payload-bytes", type=int)
+    parser.add_argument("--assert-walk", action="store_true")
     return parser.parse_args()
 
 
@@ -249,8 +320,9 @@ def main() -> int:
         fail(f"disposable save does not exist: {args.save}")
     lifecycle = args.mod_settings is not None
     observation = args.assert_local_radius is not None
-    if lifecycle == observation:
-        fail("runner invocation must be either lifecycle or observation")
+    walk = args.assert_walk
+    if sum((lifecycle, observation, walk)) != 1:
+        fail("runner invocation must be exactly one of lifecycle, observation, or walk/stop")
     if lifecycle and not args.mod_settings.is_file():
         fail(f"mod-settings fixture does not exist: {args.mod_settings}")
     if observation and (args.assert_max_results is None or args.assert_max_payload_bytes is None):
@@ -258,7 +330,8 @@ def main() -> int:
 
     namespace = f"factorio-fixture-{secrets.token_hex(4)}"
     report_dir = ROOT / "test-reports" / namespace
-    report: dict[str, Any] = {"namespace": namespace, "input_save_sha256": sha256(args.save), "mode": "lifecycle" if lifecycle else "observation", "image": IMAGE}
+    mode = "lifecycle" if lifecycle else "observation" if observation else "walk-stop"
+    report: dict[str, Any] = {"namespace": namespace, "input_save_sha256": sha256(args.save), "mode": mode, "image": IMAGE}
     pod: str | None = None
     with tempfile.TemporaryDirectory(prefix="factorio-fixture-") as temporary:
         temporary_path = Path(temporary)
@@ -278,8 +351,10 @@ def main() -> int:
             pod = wait_for_pod(namespace)
             if lifecycle:
                 run_lifecycle(namespace, pod, report)
-            else:
+            elif observation:
                 run_observation(namespace, pod, report, args)
+            else:
+                run_walk_stop(namespace, pod, report)
             report["result"] = "passed"
             return 0
         finally:

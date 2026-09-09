@@ -88,6 +88,15 @@ impl SchedulingSemantics {
             request_order: "serialized".to_owned(),
         }
     }
+
+    #[must_use]
+    pub fn phase_one_walk_stop() -> Self {
+        Self {
+            execution: "tick_driven_character_input".to_owned(),
+            observation_tick: "bridge_tick_snapshot".to_owned(),
+            request_order: "one_active_action_serialized_at_next_game_tick".to_owned(),
+        }
+    }
 }
 
 /// The versioned discovery response required before a client can issue tools.
@@ -103,57 +112,57 @@ pub struct CapabilityContract {
     pub profile_name: ProfileName,
     pub observation_limits: ObservationLimits,
     pub scheduling: SchedulingSemantics,
-    /// The complete fixed Phase-0 manifest, in protocol dispatch order.
-    pub capabilities: PhaseZeroCapabilities,
+    /// The complete fixed Phase-1 manifest, in protocol dispatch order.
+    pub capabilities: PhaseOneCapabilities,
     /// Provenance vocabulary this bridge can attach to observations.
     pub supported_provenance: Vec<Provenance>,
     pub current_game_tick: u64,
 }
 
-/// The only capability manifest permitted by the Phase-0 protocol.
+/// The only capability manifest permitted by the Phase-1 walk/stop protocol.
 ///
 /// The tuple schema and deserialization check reject additions, omissions,
 /// reordering, and duplicates rather than merely accepting six capabilities.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
-pub struct PhaseZeroCapabilities([Capability; 6]);
+pub struct PhaseOneCapabilities([Capability; 9]);
 
-impl PhaseZeroCapabilities {
+impl PhaseOneCapabilities {
     #[must_use]
     pub const fn exact() -> Self {
-        Self(crate::capability::PHASE_ZERO_CAPABILITIES)
+        Self(crate::capability::PHASE_ONE_CAPABILITIES)
     }
 
     #[must_use]
-    pub const fn as_array(&self) -> &[Capability; 6] {
+    pub const fn as_array(&self) -> &[Capability; 9] {
         &self.0
     }
 }
 
-impl Default for PhaseZeroCapabilities {
+impl Default for PhaseOneCapabilities {
     fn default() -> Self {
         Self::exact()
     }
 }
 
-impl<'de> Deserialize<'de> for PhaseZeroCapabilities {
+impl<'de> Deserialize<'de> for PhaseOneCapabilities {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let capabilities = <[Capability; 6]>::deserialize(deserializer)?;
-        if capabilities != crate::capability::PHASE_ZERO_CAPABILITIES {
+        let capabilities = <[Capability; 9]>::deserialize(deserializer)?;
+        if capabilities != crate::capability::PHASE_ONE_CAPABILITIES {
             return Err(de::Error::custom(
-                "capabilities must be the exact Phase-0 manifest",
+                "capabilities must be the exact Phase-1 manifest",
             ));
         }
         Ok(Self(capabilities))
     }
 }
 
-impl JsonSchema for PhaseZeroCapabilities {
+impl JsonSchema for PhaseOneCapabilities {
     fn schema_name() -> Cow<'static, str> {
-        "PhaseZeroCapabilities".into()
+        "PhaseOneCapabilities".into()
     }
 
     fn inline_schema() -> bool {
@@ -169,19 +178,22 @@ impl JsonSchema for PhaseZeroCapabilities {
                 { "const": "scan_local" },
                 { "const": "scan_charted" },
                 { "const": "get_entity" },
-                { "const": "get_action_record" }
+                { "const": "get_action_record" },
+                { "const": "walk_to" },
+                { "const": "stop" },
+                { "const": "get_action" }
             ],
             "items": false,
-            "minItems": 6,
-            "maxItems": 6
+            "minItems": 9,
+            "maxItems": 9
         })
     }
 }
 
 impl CapabilityContract {
     #[must_use]
-    pub fn phase_zero_capabilities() -> &'static [Capability] {
-        Capability::phase_zero_allow_list()
+    pub fn phase_one_capabilities() -> &'static [Capability] {
+        Capability::phase_one_allow_list()
     }
 
     #[must_use]

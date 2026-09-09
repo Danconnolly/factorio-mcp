@@ -22,10 +22,11 @@ The two integration tests are explicit opt-in release checks:
 ```text
 cargo test -p factorio-agent-testkit actor_lifecycle_end_to_end -- --ignored
 cargo test -p factorio-agent-testkit observation_policy_end_to_end -- --ignored
+cargo test -p factorio-agent-testkit walk_stop_end_to_end -- --ignored
 ```
 
-They require an operator-provided runner through `FACTORIO_LIFECYCLE_FIXTURE`
-or `FACTORIO_OBSERVATION_FIXTURE`, respectively, plus
+They require an operator-provided runner through `FACTORIO_LIFECYCLE_FIXTURE`,
+`FACTORIO_OBSERVATION_FIXTURE`, or `FACTORIO_WALK_FIXTURE`, respectively, plus
 `FACTORIO_DISPOSABLE_SAVE`. A runner may use Kubernetes, a local headless
 server, or another isolated provider that satisfies the same contract.
 
@@ -37,6 +38,7 @@ the save variable at a pre-existing copied Factorio save:
 export FACTORIO_DISPOSABLE_SAVE=/absolute/path/to/copied-fixture.zip
 export FACTORIO_LIFECYCLE_FIXTURE="$PWD/scripts/run-kubernetes-fixture.py"
 export FACTORIO_OBSERVATION_FIXTURE="$PWD/scripts/run-kubernetes-fixture.py"
+export FACTORIO_WALK_FIXTURE="$PWD/scripts/run-kubernetes-fixture.py"
 ```
 
 The runner packages the checked-in bridge source, creates a unique namespace,

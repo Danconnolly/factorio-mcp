@@ -7,8 +7,9 @@ use crate::{
     command::BridgeCommand,
     config::RconConfig,
     response::{
-        BridgeErrorCode, BridgeResponse, RconError, TransportErrorKind, decode_action_record,
-        decode_actor_status, decode_contract, decode_entity, decode_observation,
+        BridgeErrorCode, BridgeResponse, RconError, TransportErrorKind, decode_action,
+        decode_action_record, decode_actor_status, decode_contract, decode_entity,
+        decode_observation,
     },
 };
 
@@ -52,19 +53,23 @@ impl RconAdapter {
         Ok(adapter)
     }
 
-    /// Executes exactly one approved read-only bridge request.
-    ///
     /// # Errors
     ///
-    /// Returns a sanitized transport or bridge error. At most one retry is made,
-    /// and only because every current command is a read.
+    /// Returns a sanitized transport or bridge error. Mutation calls are issued
+    /// exactly once: a timeout or connection loss is ambiguous and callers must
+    /// recover through `GetAction` using the same action ID.
     pub async fn call(&self, command: BridgeCommand) -> Result<BridgeResponse, RconError> {
         let _request_guard = self.request_lock.lock().await;
         let lua = command.lua_command()?;
-        for attempt in 0..READ_ATTEMPTS {
+        let attempts = if command.is_mutation() {
+            1
+        } else {
+            READ_ATTEMPTS
+        };
+        for attempt in 0..attempts {
             match self.execute_read(&lua).await {
                 Ok(payload) => return decode_response(&command, &payload),
-                Err(error) if attempt + 1 < READ_ATTEMPTS && retryable(&error) => {
+                Err(error) if attempt + 1 < attempts && retryable(&error) => {
                     self.reconnect().await?;
                 }
                 Err(error) => return Err(error),
@@ -130,6 +135,9 @@ fn decode_response(command: &BridgeCommand, payload: &str) -> Result<BridgeRespo
         BridgeCommand::GetActionRecord { .. } => {
             decode_action_record(payload).map(BridgeResponse::ActionRecord)
         }
+        BridgeCommand::WalkTo { .. }
+        | BridgeCommand::Stop { .. }
+        | BridgeCommand::GetAction { .. } => decode_action(payload).map(BridgeResponse::Action),
     }
 }
 

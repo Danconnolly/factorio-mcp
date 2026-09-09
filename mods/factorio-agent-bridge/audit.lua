@@ -33,4 +33,16 @@ function audit.observation(capability, requested_bounds, effective_bounds, prove
   })
 end
 
+-- Receipts are persisted by actions.lua for idempotency. This bounded index is
+-- audit-only and must never be used as the source of an action result.
+function audit.mutation(receipt)
+  audit.append("mutation", {
+    action_id = receipt.action_id,
+    action_sequence = receipt.action_sequence,
+    kind = receipt.kind,
+    state = receipt.state,
+    result = receipt.result,
+  })
+end
+
 return audit

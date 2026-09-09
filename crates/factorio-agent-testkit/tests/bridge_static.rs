@@ -51,7 +51,7 @@ fn lifecycle_uses_persisted_unit_number_and_provenance_not_player_selection() {
 }
 
 #[test]
-fn remote_protocol_is_narrow_read_only_and_rejects_future_requests() {
+fn protocol_has_closed_read_and_phase_one_command_dispatch() {
     let protocol = production_lua("protocol.lua");
     let read_only = production_lua("read_only.lua");
     for forbidden in ["remote.call", "loadstring", "load(", "commands.add_command"] {
@@ -60,10 +60,9 @@ fn remote_protocol_is_narrow_read_only_and_rejects_future_requests() {
             "forbidden protocol path: {forbidden}"
         );
     }
-    assert!(
-        protocol
-            .contains("remote.add_interface(config.BRIDGE_INTERFACE, { query = protocol.query })")
-    );
+    assert!(protocol.contains(
+        "remote.add_interface(config.BRIDGE_INTERFACE, { query = protocol.query, command = protocol.command })"
+    ));
     assert!(protocol.contains("unknown or future mutation request"));
     for capability in [
         "scan_local",
@@ -73,6 +72,10 @@ fn remote_protocol_is_narrow_read_only_and_rejects_future_requests() {
     ] {
         assert!(protocol.contains(capability), "protocol lacks {capability}");
     }
+    for command in ["walk_to", "stop", "get_action"] {
+        assert!(protocol.contains(command), "protocol lacks {command}");
+    }
+    assert!(protocol.contains("unknown or future gameplay command"));
     assert!(protocol.contains("request arguments do not match the read-only capability"));
     for required in ["state", "position", "health", "inventory", "tick", "bridge"] {
         assert!(
@@ -102,7 +105,9 @@ fn lifecycle_hooks_revalidate_the_stored_actor_and_status_has_no_gameplay_writes
         "actor.initialise()",
         "script.on_load(function()",
         "actor.on_load()",
-        "script.on_nth_tick(1, actor.validate_after_load)",
+        "script.on_nth_tick(1, function()",
+        "actor.validate_after_load()",
+        "actions.tick()",
     ] {
         assert!(
             control.contains(required),
@@ -119,6 +124,41 @@ fn lifecycle_hooks_revalidate_the_stored_actor_and_status_has_no_gameplay_writes
         assert!(
             !read_only.contains(forbidden),
             "read-only status must not mutate gameplay: {forbidden}"
+        );
+    }
+}
+
+#[test]
+fn phase_one_actions_are_tick_driven_and_exclude_privileged_paths() {
+    let actions = production_lua("actions.lua");
+    for forbidden in [
+        "teleport",
+        "create_entity",
+        "mine_entity",
+        "insert(",
+        "remove_item",
+        "game.players",
+        "game.get_player",
+        "remote.call",
+    ] {
+        assert!(
+            !actions.contains(forbidden),
+            "forbidden Phase-1 action path: {forbidden}"
+        );
+    }
+    for required in [
+        "character.walking_state = { walking = true",
+        "character.walking_state = { walking = false",
+        "actions_by_id",
+        "ACTION_ID_CONFLICT",
+        "ACTION_IN_PROGRESS",
+        "TARGET_REACHED",
+        "BLOCKED",
+        "STOP_REQUESTED",
+    ] {
+        assert!(
+            actions.contains(required),
+            "missing Phase-1 action guard: {required}"
         );
     }
 }
@@ -150,7 +190,8 @@ fn observation_policy_is_bridge_enforced_bounded_and_chart_aware() {
         "MAX_OBSERVATION_PAYLOAD_BYTES",
         "requested radius exceeds bridge observation policy",
         "force.is_chunk_charted(surface, { x = chunk_x, y = chunk_y })",
-        "#helpers.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES",
+        "local function update_payload_metadata(result)",
+        "payload_bytes > config.MAX_OBSERVATION_PAYLOAD_BYTES",
         "table.sort(result.entities, by_name_then_position)",
         "table.sort(result.resources, by_name_then_position)",
         "table.sort(result.tiles, by_name_then_position)",

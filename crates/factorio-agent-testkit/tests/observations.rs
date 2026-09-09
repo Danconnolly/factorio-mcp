@@ -29,7 +29,7 @@ fn observation_policy_end_to_end() {
         .arg("--assert-max-results")
         .arg("128")
         .arg("--assert-max-payload-bytes")
-        .arg((32 * 1024).to_string())
+        .arg((3 * 1024).to_string())
         .status()
         .expect("observation fixture runner must start");
     assert!(

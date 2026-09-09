@@ -35,6 +35,11 @@ request less but cannot increase any of them. Bounded scan responses carry their
 requested and effective bounds, a single provenance value, sorted records,
 `result_count`, `partial`, `truncated`, and `payload_bytes`.
 
+The current `max_payload_bytes` is 3072 bytes. This deliberately leaves headroom
+below Factorio's practical RCON console-response limit for the bridge response
+envelope. A scan at the maximum radius must truncate deterministically rather
+than producing an oversized transport response.
+
 ## Bridge observation policy
 
 `scan_local` accepts only a radius and derives both the center and effective

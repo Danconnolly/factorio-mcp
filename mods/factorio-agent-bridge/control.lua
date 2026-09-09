@@ -3,6 +3,7 @@
 
 local config = require("config")
 local actor = require("actor")
+local actions = require("actions")
 local protocol = require("protocol")
 
 protocol.register()
@@ -20,6 +21,7 @@ local function initialise_storage()
   state.lifecycle_schema_version = config.LIFECYCLE_SCHEMA_VERSION
   state.policy_version = config.POLICY_VERSION
   actor.initialise()
+  actions.initialise()
 end
 
 script.on_init(function()
@@ -34,4 +36,7 @@ script.on_load(function()
   actor.on_load()
 end)
 
-script.on_nth_tick(1, actor.validate_after_load)
+script.on_nth_tick(1, function()
+  actor.validate_after_load()
+  actions.tick()
+end)

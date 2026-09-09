@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Public read-only capabilities available during Phase 0.
+/// Public capabilities available during the first Phase-1 movement slice.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
@@ -11,6 +11,9 @@ pub enum Capability {
     ScanCharted,
     GetEntity,
     GetActionRecord,
+    WalkTo,
+    Stop,
+    GetAction,
 }
 
 impl Capability {
@@ -23,21 +26,27 @@ impl Capability {
             Self::ScanCharted => "scan_charted",
             Self::GetEntity => "get_entity",
             Self::GetActionRecord => "get_action_record",
+            Self::WalkTo => "walk_to",
+            Self::Stop => "stop",
+            Self::GetAction => "get_action",
         }
     }
 
     #[must_use]
-    pub const fn phase_zero_allow_list() -> &'static [Self] {
-        &PHASE_ZERO_CAPABILITIES
+    pub const fn phase_one_allow_list() -> &'static [Self] {
+        &PHASE_ONE_CAPABILITIES
     }
 }
 
-/// The complete Phase-0 surface. Additive capability changes require a policy version change.
-pub const PHASE_ZERO_CAPABILITIES: [Capability; 6] = [
+/// The complete Phase-1 walk/stop surface. Additive changes require a policy version change.
+pub const PHASE_ONE_CAPABILITIES: [Capability; 9] = [
     Capability::GetCapabilityContract,
     Capability::GetActorStatus,
     Capability::ScanLocal,
     Capability::ScanCharted,
     Capability::GetEntity,
     Capability::GetActionRecord,
+    Capability::WalkTo,
+    Capability::Stop,
+    Capability::GetAction,
 ];

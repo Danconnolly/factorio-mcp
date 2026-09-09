@@ -71,8 +71,8 @@ pub struct ObservationRecord {
     pub truncated: bool,
 }
 
-/// Phase-0 audit data intentionally excludes mutation receipts and sensitive content.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+/// Phase-1 audit records retain read metadata and durable bridge-owned action receipts.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AuditRecord {
     Lifecycle {
@@ -81,10 +81,13 @@ pub enum AuditRecord {
         game_tick: u64,
     },
     Observation(ObservationRecord),
+    Mutation {
+        receipt: serde_json::Value,
+    },
 }
 
 /// The append-only envelope. Only this narrow metadata is hashed into chain links.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct AuditEnvelope {
     pub sequence: u64,
     pub previous_digest: String,

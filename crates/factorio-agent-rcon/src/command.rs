@@ -6,7 +6,8 @@ use crate::{
     response::{BridgeErrorCode, RconError},
 };
 
-const REMOTE_METHOD: &str = "query";
+const QUERY_METHOD: &str = "query";
+const COMMAND_METHOD: &str = "command";
 const MAX_COMMAND_BYTES: usize = 4 * 1024;
 /// Largest integer Lua can represent exactly when received through JSON/RCON.
 pub const MAX_LUA_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
@@ -20,6 +21,9 @@ pub enum BridgeCommand {
     ScanCharted { center: Position, radius: u32 },
     GetEntity { target: EntityTarget },
     GetActionRecord { sequence: u64 },
+    WalkTo { action_id: String, target: Position },
+    Stop { action_id: String },
+    GetAction { action_id: String },
 }
 
 /// The only two policy-approved ways to identify an entity.
@@ -30,6 +34,7 @@ pub enum EntityTarget {
 }
 
 impl BridgeCommand {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn lua_command(&self) -> Result<String, RconError> {
         if let Self::GetActionRecord { sequence } = self
             && *sequence > MAX_LUA_SAFE_INTEGER
@@ -46,6 +51,8 @@ impl BridgeCommand {
                 entity_id: None,
                 position: None,
                 sequence: None,
+                action_id: None,
+                target: None,
             },
             Self::GetActorStatus => QueryRequest {
                 name: "get_actor_status",
@@ -54,6 +61,8 @@ impl BridgeCommand {
                 entity_id: None,
                 position: None,
                 sequence: None,
+                action_id: None,
+                target: None,
             },
             Self::ScanLocal { radius } => QueryRequest {
                 name: "scan_local",
@@ -62,6 +71,8 @@ impl BridgeCommand {
                 entity_id: None,
                 position: None,
                 sequence: None,
+                action_id: None,
+                target: None,
             },
             Self::ScanCharted { center, radius } => QueryRequest {
                 name: "scan_charted",
@@ -70,6 +81,8 @@ impl BridgeCommand {
                 entity_id: None,
                 position: None,
                 sequence: None,
+                action_id: None,
+                target: None,
             },
             Self::GetEntity { target } => match target {
                 EntityTarget::IssuedId(entity_id) => QueryRequest {
@@ -79,6 +92,8 @@ impl BridgeCommand {
                     entity_id: Some(entity_id),
                     position: None,
                     sequence: None,
+                    action_id: None,
+                    target: None,
                 },
                 EntityTarget::Position(position) => QueryRequest {
                     name: "get_entity",
@@ -87,6 +102,8 @@ impl BridgeCommand {
                     entity_id: None,
                     position: Some(*position),
                     sequence: None,
+                    action_id: None,
+                    target: None,
                 },
             },
             Self::GetActionRecord { sequence } => QueryRequest {
@@ -96,6 +113,38 @@ impl BridgeCommand {
                 entity_id: None,
                 position: None,
                 sequence: Some(*sequence),
+                action_id: None,
+                target: None,
+            },
+            Self::WalkTo { action_id, target } => QueryRequest {
+                name: "walk_to",
+                radius: None,
+                center: None,
+                entity_id: None,
+                position: None,
+                sequence: None,
+                action_id: Some(action_id),
+                target: Some(*target),
+            },
+            Self::Stop { action_id } => QueryRequest {
+                name: "stop",
+                radius: None,
+                center: None,
+                entity_id: None,
+                position: None,
+                sequence: None,
+                action_id: Some(action_id),
+                target: None,
+            },
+            Self::GetAction { action_id } => QueryRequest {
+                name: "get_action",
+                radius: None,
+                center: None,
+                entity_id: None,
+                position: None,
+                sequence: None,
+                action_id: Some(action_id),
+                target: None,
             },
         };
         let canonical_request = canonical_json(&request).map_err(|_| RconError::Bridge {
@@ -108,7 +157,8 @@ impl BridgeCommand {
                 code: BridgeErrorCode::SerializationFailure,
             })?;
         let command = format!(
-            "/c rcon.print(helpers.table_to_json(remote.call(\"{BRIDGE_INTERFACE}\",\"{REMOTE_METHOD}\",helpers.json_to_table({lua_literal}))))"
+            "/c rcon.print(helpers.table_to_json(remote.call(\"{BRIDGE_INTERFACE}\",\"{}\",helpers.json_to_table({lua_literal}))))",
+            self.remote_method(),
         );
         if command.len() > MAX_COMMAND_BYTES {
             return Err(RconError::Bridge {
@@ -116,6 +166,17 @@ impl BridgeCommand {
             });
         }
         Ok(command)
+    }
+
+    pub(crate) const fn is_mutation(&self) -> bool {
+        matches!(self, Self::WalkTo { .. } | Self::Stop { .. })
+    }
+
+    const fn remote_method(&self) -> &'static str {
+        match self {
+            Self::WalkTo { .. } | Self::Stop { .. } | Self::GetAction { .. } => COMMAND_METHOD,
+            _ => QUERY_METHOD,
+        }
     }
 }
 
@@ -133,6 +194,10 @@ struct QueryRequest<'a> {
     position: Option<Position>,
     #[serde(skip_serializing_if = "Option::is_none")]
     sequence: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target: Option<Position>,
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 //! Versioned, transport-independent contracts for Factorio Fair-Play MCP.
 //!
-//! Phase 0 is deliberately read-only: it describes the actor and bounded
-//! observations, but has no mutation receipt or transport implementation.
+//! Phase 1 adds a deliberately small tick-driven walking surface to the
+//! read-only actor and bounded-observation foundation.
 
 #![forbid(unsafe_code)]
 
@@ -11,12 +11,12 @@ pub mod model;
 pub mod receipt;
 pub mod schema;
 
-pub use capability::{Capability, PHASE_ZERO_CAPABILITIES};
+pub use capability::{Capability, PHASE_ONE_CAPABILITIES};
 pub use error::{ContractError, ErrorCode};
 pub use model::{
     ActorId, ActorLifecycleState, ActorStatus, BridgeVersions, CapabilityContract, EnabledMod,
     EntityRecord, ForceId, ForceIdentity, InventoryItemSummary, InventorySummary,
-    ObservationLimits, PhaseZeroCapabilities, Position, ProfileName, Provenance, ResourceRecord,
+    ObservationLimits, PhaseOneCapabilities, Position, ProfileName, Provenance, ResourceRecord,
     SchedulingSemantics, SurfaceIdentity, TileRecord,
 };
 pub use receipt::{
@@ -28,4 +28,4 @@ pub use schema::{
 };
 
 /// Contract schema version implemented by this build.
-pub const SCHEMA_VERSION: &str = "0.1.0";
+pub const SCHEMA_VERSION: &str = "0.2.0";
