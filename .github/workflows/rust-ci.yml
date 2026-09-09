@@ -20,6 +20,8 @@ jobs:
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
 
       - name: Check formatting
         run: cargo fmt --check
