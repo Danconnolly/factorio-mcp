@@ -159,10 +159,23 @@ function policy.sort_results(result)
   table.sort(result.tiles, by_name_then_position)
 end
 
+local function update_payload_metadata(result)
+  result.result_count = #result.entities + #result.resources + #result.tiles
+  local payload_bytes = 0
+  while true do
+    result.payload_bytes = payload_bytes
+    local next_payload_bytes = #helpers.table_to_json(result)
+    if next_payload_bytes == payload_bytes then
+      return payload_bytes
+    end
+    payload_bytes = next_payload_bytes
+  end
+end
+
 function policy.bound_payload(result)
   policy.sort_results(result)
-  local count = #result.entities + #result.resources + #result.tiles
-  while count > config.MAX_OBSERVATION_RESULTS or #helpers.table_to_json(result) > config.MAX_OBSERVATION_PAYLOAD_BYTES do
+  local payload_bytes = update_payload_metadata(result)
+  while result.result_count > config.MAX_OBSERVATION_RESULTS or payload_bytes > config.MAX_OBSERVATION_PAYLOAD_BYTES do
     if #result.tiles > 0 then
       table.remove(result.tiles)
     elseif #result.resources > 0 then
@@ -174,10 +187,9 @@ function policy.bound_payload(result)
     end
     result.partial = true
     result.truncated = true
-    count = #result.entities + #result.resources + #result.tiles
+    payload_bytes = update_payload_metadata(result)
   end
-  result.result_count = count
-  result.payload_bytes = #helpers.table_to_json(result)
+  update_payload_metadata(result)
   return result
 end
 

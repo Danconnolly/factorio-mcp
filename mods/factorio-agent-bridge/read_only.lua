@@ -94,18 +94,18 @@ end
 function read_only.capability_contract(character)
   local status = read_only.actor_status(character, "ready")
   return {
-    schema_version = "0.1.0",
+    schema_version = config.SCHEMA_VERSION,
     fair_play_policy_version = config.POLICY_VERSION,
     bridge_build = config.BRIDGE_BUILD,
     factorio_build = script.active_mods.base or "unknown",
     enabled_mods = enabled_mods(),
     actor_id = status.actor_id,
     force_id = status.force.name,
-    profile_name = "phase-zero-read-only",
+    profile_name = "phase-one-walk-stop",
     scheduling = {
-      execution = "read_only",
+      execution = "tick_driven_character_input",
       observation_tick = "bridge_tick_snapshot",
-      request_order = "serialized",
+      request_order = "one_active_action_serialized_at_next_game_tick",
     },
     observation_limits = {
       max_radius = config.MAX_OBSERVATION_RADIUS,
@@ -115,7 +115,7 @@ function read_only.capability_contract(character)
     },
     supported_provenance = { "character_local", "force_charted", "permitted_direct_interaction", "force_statistics" },
     current_game_tick = status.tick,
-    capabilities = { "get_capability_contract", "get_actor_status", "scan_local", "scan_charted", "get_entity", "get_action_record" },
+    capabilities = { "get_capability_contract", "get_actor_status", "scan_local", "scan_charted", "get_entity", "get_action_record", "walk_to", "stop", "get_action" },
   }
 end
 

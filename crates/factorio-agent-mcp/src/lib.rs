@@ -356,6 +356,87 @@ impl PhaseZeroServer {
             Err(error) => error_result(error),
         }
     }
+
+    #[tool(
+        name = "walk_to",
+        description = "Start one bounded, tick-driven walk for the bridge-owned character.",
+        annotations(destructive_hint = false, idempotent_hint = true)
+    )]
+    async fn walk_to(&self, Parameters(input): Parameters<WalkToInput>) -> CallToolResult {
+        if let Err(error) =
+            validate_action_id(&input.action_id).and_then(|()| validate_position(input.target))
+        {
+            return error_result(error);
+        }
+        match self
+            .call(BridgeCommand::WalkTo {
+                action_id: input.action_id,
+                target: input.target,
+            })
+            .await
+        {
+            Ok(BridgeResponse::Action(receipt)) => self.audited_result(
+                &receipt,
+                AuditRecord::Mutation {
+                    receipt: receipt.clone(),
+                },
+            ),
+            Ok(_) => error_result(internal_mismatch()),
+            Err(error) => error_result(error),
+        }
+    }
+
+    #[tool(
+        name = "stop",
+        description = "Cancel the active bridge-owned gameplay action without bypassing its ordinary consequences.",
+        annotations(destructive_hint = false, idempotent_hint = true)
+    )]
+    async fn stop(&self, Parameters(input): Parameters<ActionInput>) -> CallToolResult {
+        if let Err(error) = validate_action_id(&input.action_id) {
+            return error_result(error);
+        }
+        match self
+            .call(BridgeCommand::Stop {
+                action_id: input.action_id,
+            })
+            .await
+        {
+            Ok(BridgeResponse::Action(receipt)) => self.audited_result(
+                &receipt,
+                AuditRecord::Mutation {
+                    receipt: receipt.clone(),
+                },
+            ),
+            Ok(_) => error_result(internal_mismatch()),
+            Err(error) => error_result(error),
+        }
+    }
+
+    #[tool(
+        name = "get_action",
+        description = "Read a durable bridge-owned action state or terminal receipt by action ID.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_action(&self, Parameters(input): Parameters<ActionInput>) -> CallToolResult {
+        if let Err(error) = validate_action_id(&input.action_id) {
+            return error_result(error);
+        }
+        match self
+            .call(BridgeCommand::GetAction {
+                action_id: input.action_id,
+            })
+            .await
+        {
+            Ok(BridgeResponse::Action(receipt)) => self.audited_result(
+                &receipt,
+                AuditRecord::Mutation {
+                    receipt: receipt.clone(),
+                },
+            ),
+            Ok(_) => error_result(internal_mismatch()),
+            Err(error) => error_result(error),
+        }
+    }
 }
 
 #[allow(clippy::unused_async_trait_impl)]
@@ -427,6 +508,19 @@ struct ActionRecordInput {
     sequence: u64,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ActionInput {
+    action_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct WalkToInput {
+    action_id: String,
+    target: Position,
+}
+
 fn validate_radius(radius: u32) -> Result<(), ContractError> {
     if radius == 0 || radius > MAX_HOST_RADIUS {
         return Err(ContractError::new(
@@ -453,6 +547,22 @@ fn valid_entity_id(entity_id: &str) -> bool {
         && entity_id
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn validate_action_id(action_id: &str) -> Result<(), ContractError> {
+    let valid = !action_id.is_empty()
+        && action_id.len() <= 128
+        && action_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'));
+    if valid {
+        Ok(())
+    } else {
+        Err(ContractError::new(
+            ErrorCode::InvalidArgument,
+            "action_id must be 1-128 ASCII letters, digits, '.', '_', ':', or '-'",
+        ))
+    }
 }
 
 fn observation_record(
@@ -591,26 +701,40 @@ mod tests {
     }
 
     #[test]
-    fn six_tools_are_the_entire_discovery_surface_and_inputs_are_schemas() {
-        let names: Vec<_> = PhaseZeroServer::tool_router()
-            .list_all()
-            .into_iter()
-            .map(|tool| tool.name.into_owned())
-            .collect();
+    fn phase_one_tools_are_the_entire_discovery_surface_and_inputs_are_schemas() {
+        let tools = PhaseZeroServer::tool_router().list_all();
+        let names: Vec<_> = tools.iter().map(|tool| tool.name.as_ref()).collect();
         assert_eq!(
             names,
             [
+                "get_action",
                 "get_action_record",
                 "get_actor_status",
                 "get_capability_contract",
                 "get_entity",
                 "scan_charted",
                 "scan_local",
+                "stop",
+                "walk_to",
             ]
         );
-        for tool in PhaseZeroServer::tool_router().list_all() {
+        for tool in tools {
             assert!(tool.schema_as_json_value().is_object());
-            assert_eq!(tool.annotations.unwrap().read_only_hint, Some(true));
+            let read_only = tool.annotations.unwrap().read_only_hint;
+            if matches!(
+                tool.name.as_ref(),
+                "get_action"
+                    | "get_action_record"
+                    | "get_actor_status"
+                    | "get_capability_contract"
+                    | "get_entity"
+                    | "scan_charted"
+                    | "scan_local"
+            ) {
+                assert_eq!(read_only, Some(true));
+            } else {
+                assert_eq!(read_only, None);
+            }
         }
     }
 

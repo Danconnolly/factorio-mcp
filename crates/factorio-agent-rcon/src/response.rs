@@ -134,6 +134,11 @@ pub struct BridgeActionRecord {
     #[serde(flatten)]
     pub action: BridgeActionKind,
 }
+
+/// Persisted Phase-1 action state/receipt as emitted by the bridge.
+/// The Lua bridge is the durable idempotency authority; callers recover an
+/// ambiguous mutation by action ID rather than repeat the mutation.
+pub type BridgeActionReceipt = serde_json::Value;
 /// Closed audit vocabulary currently emitted by `audit.lua` and `actor.lua`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "kind", content = "detail", rename_all = "snake_case")]
@@ -171,6 +176,7 @@ pub enum BridgeResponse {
     ScanCharted(ObservationResult),
     Entity(BridgeEntityRecord),
     ActionRecord(BridgeActionRecord),
+    Action(BridgeActionReceipt),
 }
 
 #[derive(Deserialize)]
@@ -196,6 +202,10 @@ pub(crate) fn decode_entity(payload: &str) -> Result<BridgeEntityRecord, RconErr
     decode(payload)
 }
 pub(crate) fn decode_action_record(payload: &str) -> Result<BridgeActionRecord, RconError> {
+    decode(payload)
+}
+
+pub(crate) fn decode_action(payload: &str) -> Result<BridgeActionReceipt, RconError> {
     decode(payload)
 }
 

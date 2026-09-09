@@ -2,7 +2,7 @@ use factorio_agent_contract::{
     ActionId, ActionState, ActorId, ActorLifecycleState, ActorStatus, AuditChain, AuditRecord,
     BridgeVersions, Capability, CapabilityContract, EnabledMod, ForceId, ForceIdentity,
     InventoryItemSummary, InventorySummary, ObservationLimits, ObservationRecord,
-    PhaseZeroCapabilities, Position, ProfileName, Provenance, SCHEMA_VERSION, SchedulingSemantics,
+    PhaseOneCapabilities, Position, ProfileName, Provenance, SCHEMA_VERSION, SchedulingSemantics,
     SurfaceIdentity, actor_status_schema, audit_envelope_schema, audit_schema, canonical_json,
     capability_schema, entity_record_schema, resource_record_schema, tile_record_schema,
 };
@@ -19,9 +19,9 @@ fn contract() -> CapabilityContract {
         actor_id: ActorId::new("actor:phase-zero"),
         force_id: ForceId::new("force:player"),
         profile_name: ProfileName::new("phase-zero"),
-        observation_limits: ObservationLimits::new(32, 128, 4, 32 * 1024),
-        scheduling: SchedulingSemantics::phase_zero(),
-        capabilities: PhaseZeroCapabilities::exact(),
+        observation_limits: ObservationLimits::new(32, 128, 4, 3 * 1024),
+        scheduling: SchedulingSemantics::phase_one_walk_stop(),
+        capabilities: PhaseOneCapabilities::exact(),
         supported_provenance: vec![
             Provenance::CharacterLocal,
             Provenance::ForceCharted,
@@ -33,8 +33,8 @@ fn contract() -> CapabilityContract {
 }
 
 #[test]
-fn phase_zero_capability_allow_list_is_exact_and_excludes_mutation() {
-    let names: Vec<_> = Capability::phase_zero_allow_list()
+fn phase_one_capability_allow_list_is_exact_and_excludes_prohibited_mutation() {
+    let names: Vec<_> = Capability::phase_one_allow_list()
         .iter()
         .map(|capability| capability.as_str())
         .collect();
@@ -47,6 +47,9 @@ fn phase_zero_capability_allow_list_is_exact_and_excludes_mutation() {
             "scan_charted",
             "get_entity",
             "get_action_record",
+            "walk_to",
+            "stop",
+            "get_action",
         ]
     );
     for prohibited in [
@@ -112,7 +115,7 @@ fn capability_schema_and_fixture_require_the_contract_and_provenance() {
 }
 
 #[test]
-fn audit_schema_is_checked_in_and_future_mutation_receipts_are_not_phase_zero_records() {
+fn audit_schema_is_checked_in_and_includes_phase_one_mutation_receipts() {
     let schema = audit_schema();
     let schema_text = canonical_json(&schema).expect("schema canonicalizes");
     let fixture = fs::read_to_string(concat!(
@@ -123,7 +126,7 @@ fn audit_schema_is_checked_in_and_future_mutation_receipts_are_not_phase_zero_re
     assert_eq!(fixture.trim(), schema_text);
     assert!(schema_text.contains("lifecycle"));
     assert!(schema_text.contains("observation"));
-    assert!(!schema_text.contains("mutation_receipt"));
+    assert!(schema_text.contains("mutation"));
     let schema: Value = serde_json::to_value(schema).expect("schema serializes");
     assert_eq!(
         schema["$defs"]["ActionState"]["enum"],
@@ -275,7 +278,10 @@ fn contract_manifest_is_schema_and_deserialization_exact() {
             "scan_local",
             "scan_charted",
             "get_entity",
-            "get_action_record"
+            "get_action_record",
+            "walk_to",
+            "stop",
+            "get_action"
         ])
     );
     let schema = serde_json::to_value(capability_schema()).expect("schema serializes");
@@ -297,7 +303,7 @@ fn contract_is_machine_readable_and_complete() {
     assert_eq!(value["observation_limits"]["max_radius"], 32);
     assert_eq!(value["observation_limits"]["max_result_count"], 128);
     assert_eq!(value["observation_limits"]["max_detail_fields"], 4);
-    assert_eq!(value["observation_limits"]["max_payload_bytes"], 32 * 1024);
+    assert_eq!(value["observation_limits"]["max_payload_bytes"], 3 * 1024);
 }
 
 #[test]
