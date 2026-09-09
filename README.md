@@ -27,6 +27,11 @@ attached to a valued save at this stage.
 - Game-time actions must respect reach, collision, inventory capacity, item
   conservation and normal timing.
 - Every mutation produces a structured, tamper-evident audit receipt.
+- The MCP is agent-neutral: it exposes fair mechanics and observations, not a
+  preferred factory strategy, layout, progression path or agent-specific tool
+  privilege.
+- Sessions publish a versioned capability contract so the same action sequence
+  can be interpreted and replayed against a defined Factorio/mod/tool profile.
 - Development and integration testing use disposable saves. Live deployment
   requires a backup and a tested rollback procedure.
 
@@ -50,6 +55,10 @@ test harness. A virtual character may proceed to gameplay tools only after tests
 show it can satisfy the documented mechanics. If the required equivalence cannot
 be demonstrated, the project will pivot to a dedicated connected Factorio client
 rather than weakening the fair-play definition.
+
+This repository is the controller layer. A separate harness repository will own
+agent adapters, scenarios, benchmarks, budgets, scorecards and the eventual
+vanilla rocket-launch comparison runs.
 
 ## License
 
