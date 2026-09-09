@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 ROOT = Path(__file__).resolve().parent.parent
-MOD_ROOT = ROOT / "mods" / "factorio-fair-play-bridge"
+MOD_ROOT = ROOT / "mods" / "factorio-agent-bridge"
 IMAGE = os.environ.get("FACTORIO_FIXTURE_IMAGE", "factoriotools/factorio:2.1.17")
 TIMEOUT_SECONDS = int(os.environ.get("FACTORIO_FIXTURE_TIMEOUT_SECONDS", "180"))
 
@@ -62,7 +62,7 @@ def package_bridge(target: Path) -> None:
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(MOD_ROOT.rglob("*")):
             if path.is_file():
-                archive.write(path, f"factorio-fair-play-bridge_0.1.0/{path.relative_to(MOD_ROOT).as_posix()}")
+                archive.write(path, f"factorio-agent-bridge_0.1.0/{path.relative_to(MOD_ROOT).as_posix()}")
 
 
 def sha256(path: Path) -> str:
@@ -74,7 +74,7 @@ def sha256(path: Path) -> str:
 
 
 def manifest(namespace: str) -> str:
-    labels = {"app.kubernetes.io/name": "factorio-fair-play-mcp", "app.kubernetes.io/component": "phase-0-fixture"}
+    labels = {"app.kubernetes.io/name": "factorio-agent-bridge", "app.kubernetes.io/component": "phase-0-fixture"}
     return json.dumps(
         {
             "apiVersion": "v1",
@@ -107,7 +107,7 @@ def manifest(namespace: str) -> str:
 
 
 def server_manifest(namespace: str) -> str:
-    labels = {"app.kubernetes.io/name": "factorio-fair-play-mcp", "app.kubernetes.io/component": "phase-0-fixture"}
+    labels = {"app.kubernetes.io/name": "factorio-agent-bridge", "app.kubernetes.io/component": "phase-0-fixture"}
     return json.dumps(
         {
             "apiVersion": "v1",
@@ -133,7 +133,7 @@ def server_manifest(namespace: str) -> str:
                                 "initContainers": [{
                                     "name": "install-fixture-inputs",
                                     "image": "busybox:1.37.0",
-                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-fair-play-bridge_0.1.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
+                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.1.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
                                     "volumeMounts": [{"name": "data", "mountPath": "/factorio"}, {"name": "bridge", "mountPath": "/source", "readOnly": True}, {"name": "rcon", "mountPath": "/secret", "readOnly": True}],
                                 }],
                                 "containers": [{
@@ -172,7 +172,7 @@ def fixed_query(namespace: str, pod: str, request: str) -> dict[str, Any]:
     }
     if request not in requests:
         fail(f"unknown fixed fixture query: {request}")
-    lua = f'/c rcon.print(helpers.table_to_json(remote.call("factorio_fair_play_bridge","query",{requests[request]})))'
+    lua = f'/c rcon.print(helpers.table_to_json(remote.call("factorio_agent_bridge","query",{requests[request]})))'
     # Factorio requires confirmation before the first console command in a save.
     # The first fixed command grants that confirmation; the identical second call
     # yields the bridge response. This occurs only in the disposable fixture.
@@ -265,7 +265,7 @@ def main() -> int:
         archive = temporary_path / "bridge.zip"
         mod_list = temporary_path / "mod-list.json"
         package_bridge(archive)
-        mod_list.write_text('{"mods":[{"name":"base","enabled":true},{"name":"factorio-fair-play-bridge","enabled":true}]}\n', encoding="utf-8")
+        mod_list.write_text('{"mods":[{"name":"base","enabled":true},{"name":"factorio-agent-bridge","enabled":true}]}\n', encoding="utf-8")
         password = secrets.token_urlsafe(32)
         try:
             kubectl(None, "apply", "-f", "-", input_text=manifest(namespace))

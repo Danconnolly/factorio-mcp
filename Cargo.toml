@@ -1,9 +1,9 @@
 [workspace]
 members = [
-  "crates/fair-play-contract",
-  "crates/fair-play-rcon",
-  "crates/fair-play-mcp",
-  "crates/fair-play-testkit",
+  "crates/factorio-agent-contract",
+  "crates/factorio-agent-rcon",
+  "crates/factorio-agent-mcp",
+  "crates/factorio-agent-testkit",
 ]
 resolver = "2"
 

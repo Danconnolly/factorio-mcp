@@ -20,8 +20,8 @@ save.
 The two integration tests are explicit opt-in release checks:
 
 ```text
-cargo test -p fair-play-testkit actor_lifecycle_end_to_end -- --ignored
-cargo test -p fair-play-testkit observation_policy_end_to_end -- --ignored
+cargo test -p factorio-agent-testkit actor_lifecycle_end_to_end -- --ignored
+cargo test -p factorio-agent-testkit observation_policy_end_to_end -- --ignored
 ```
 
 They require an operator-provided runner through `FACTORIO_LIFECYCLE_FIXTURE`

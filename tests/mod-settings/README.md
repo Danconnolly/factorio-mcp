@@ -5,7 +5,7 @@ Factorio's startup mod-settings configuration for lifecycle integration runs:
 
 ```ini
 [mod-setting-name]
-factorio-fair-play-actor-id=alfred
+factorio-agent-bridge-actor-id=alfred
 ```
 
 The setting is intentionally a startup setting. `alfred` is the only default;

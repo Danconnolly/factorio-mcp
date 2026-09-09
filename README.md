@@ -1,11 +1,11 @@
-# Factorio Fair-Play MCP
+# Factorio Agent Bridge
 
-Factorio Fair-Play MCP is a Factorio 2.x Model Context Protocol (MCP) project
-for an AI harness to inspect and operate one dedicated, persistent in-game
-character without granting it administrative shortcuts.
+Factorio Agent Bridge is a Factorio 2.x mod and Model Context Protocol (MCP)
+project for an AI harness to inspect and operate one dedicated, persistent
+in-game character without granting it administrative shortcuts.
 
 The project is designed for safe coexistence with human players in a persistent
-world. “Fair play” is an acceptance criterion, not a marketing adjective: the
+world. Fair play is an acceptance criterion, not a marketing adjective: the
 actor must demonstrate normal movement, mining, crafting, building, inventory,
 research, death and respawn consequences, or the implementation does not qualify.
 
