@@ -1,0 +1,14 @@
+[package]
+name = "fair-play-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+fair-play-contract = { path = "../fair-play-contract" }
+rmcp = "=3.2.0"
+
+[lints]
+workspace = true

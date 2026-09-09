@@ -1,0 +1,16 @@
+[package]
+name = "fair-play-rcon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+factorio-rcon = "=0.1.0"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"

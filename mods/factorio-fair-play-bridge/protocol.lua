@@ -1,0 +1,89 @@
+local actor = require("actor")
+local audit = require("audit")
+local read_only = require("read_only")
+
+local protocol = {}
+
+local ALLOWED_REQUESTS = {
+  get_actor_status = true,
+  get_capability_contract = true,
+  scan_local = true,
+  scan_charted = true,
+  get_entity = true,
+  get_action_record = true,
+}
+
+local function rejected(code, detail)
+  return { ok = false, error = { code = code, detail = detail } }
+end
+
+local function only_fields(request, allowed)
+  for field in pairs(request) do
+    if not allowed[field] then
+      return false
+    end
+  end
+  return true
+end
+
+local function request_is_valid(request)
+  if request.name == "get_actor_status" or request.name == "get_capability_contract" then
+    return only_fields(request, { name = true })
+  end
+  if request.name == "scan_local" then
+    return only_fields(request, { name = true, radius = true }) and request.radius ~= nil
+  end
+  if request.name == "scan_charted" then
+    return only_fields(request, { name = true, center = true, radius = true }) and request.center ~= nil and request.radius ~= nil
+  end
+  if request.name == "get_entity" then
+    return only_fields(request, { name = true, entity_id = true, position = true })
+      and ((request.entity_id ~= nil) ~= (request.position ~= nil))
+  end
+  return only_fields(request, { name = true, sequence = true }) and request.sequence ~= nil
+end
+
+local function denied_observation(request, error)
+  if ALLOWED_REQUESTS[request.name] and request.name ~= "get_actor_status" and request.name ~= "get_capability_contract" then
+    audit.observation(request.name, { center = request.center, radius = request.radius }, nil, "none", 0, false, "rejected:" .. error.code)
+  end
+end
+
+function protocol.query(request)
+  if type(request) ~= "table" or type(request.name) ~= "string" then
+    return rejected("INVALID_ARGUMENT", "request must contain a string name")
+  end
+  if not ALLOWED_REQUESTS[request.name] then
+    return rejected("OUT_OF_POLICY", "unknown or future mutation request")
+  end
+  if not request_is_valid(request) then
+    local error = { code = "INVALID_ARGUMENT", detail = "request arguments do not match the read-only capability" }
+    denied_observation(request, error)
+    return { ok = false, error = error }
+  end
+
+  local character, lifecycle_state = actor.resolve_stored()
+  if not character then
+    return rejected("ACTOR_UNAVAILABLE", lifecycle_state)
+  end
+  if request.name == "get_actor_status" then
+    return { ok = true, result = read_only.actor_status(character, "ready") }
+  end
+  if request.name == "get_capability_contract" then
+    return { ok = true, result = read_only.capability_contract(character) }
+  end
+
+  local result, error = read_only[request.name](character, request)
+  if not result then
+    denied_observation(request, error)
+    return { ok = false, error = error }
+  end
+  return { ok = true, result = result }
+end
+
+function protocol.register()
+  local config = require("config")
+  remote.add_interface(config.BRIDGE_INTERFACE, { query = protocol.query })
+end
+
+return protocol

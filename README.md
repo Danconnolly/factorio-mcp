@@ -11,9 +11,11 @@ research, death and respawn consequences, or the implementation does not qualify
 
 ## Status
 
-Pre-implementation. The repository currently contains the requirements,
-open-source assessment and implementation plan. No gameplay controller should be
-attached to a valued save at this stage.
+Phase 0 workspace skeleton. The repository now contains the requirements,
+open-source assessment, implementation plan, Rust workspace and minimal
+Factorio 2.0 bridge-mod shell. It does not yet expose gameplay controls or a
+working MCP server. No gameplay controller should be attached to a valued save
+at this stage.
 
 ## Design constraints
 
@@ -59,6 +61,31 @@ rather than weakening the fair-play definition.
 This repository is the controller layer. A separate harness repository will own
 agent adapters, scenarios, benchmarks, budgets, scorecards and the eventual
 vanilla rocket-launch comparison runs.
+
+## Developer prerequisites
+
+- Rust 1.98.1 (pinned in `rust-toolchain.toml`) with Cargo, rustfmt and Clippy.
+- A licensed Factorio 2.x headless-server distribution before running Factorio
+  integration tests. The local fixture must use a disposable copy of a save.
+- An RCON endpoint and password only when later bridge integration is enabled;
+  keep them outside the repository, for example in a local `.env` file.
+
+The host-side controller is Rust. The small runtime bridge is Lua because that
+is Factorio's mod-control interface. The future Rust RCON adapter will call a
+closed set of named bridge functions; it will not provide a generic Lua or RCON
+console.
+
+Current host checks:
+
+```text
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+The presence of this skeleton is not evidence of virtual-character equivalence
+or of fair play. Those claims remain gated on the documented Phase-0 lifecycle,
+observation and real-player differential tests.
 
 ## License
 
