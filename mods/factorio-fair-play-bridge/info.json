@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "title": "Factorio Fair-Play Bridge",
   "author": "Daniel Connolly",
-  "factorio_version": "2.0",
+  "factorio_version": "2.1",
   "dependencies": ["base >= 2.0"],
   "description": "Phase-0 lifecycle and read-only bridge for Factorio Fair-Play MCP."
 }

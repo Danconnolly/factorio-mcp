@@ -3,8 +3,9 @@
 ## Purpose
 
 This is the manual release gate for deciding whether the headless virtual actor
-can plausibly meet the fair-play requirements. It does not approve gameplay
-writes. It records evidence for the Phase-0 Go/Pivot decision.
+has a stable, isolated lifecycle and bounded observation model. It does not
+approve gameplay writes. It records evidence for the Phase-0 Go/Pivot decision;
+action-by-action equivalence is a Phase-1 promotion gate.
 
 A failed, missing, or inconclusive probe is a blocked gate, not a pass.
 
@@ -50,12 +51,12 @@ to conceal a discrepancy.
 | P0-01 | Zero-client status and reconnect | Actor identity, character identity, position, inventory and policy remain stable across MCP disconnect/reconnect with no connected human. |
 | P0-02 | Save/reload and server restart | The same stored actor is recovered after save reload and complete server restart; no replacement entity is created. |
 | P0-03 | Human isolation | With a human connected, bridge status remains bound to `alfred`; the human is not selected, moved, deleted, altered, or used as an observation origin. |
-| P0-04 | Movement and collision | Compare elapsed ticks, final position and collision/reach result for an equal-distance walk into clear terrain and against an obstacle. |
-| P0-05 | Mining | Compare target eligibility, elapsed ticks, inventory delta, target result and emitted mining events for one manually selected resource/entity. |
-| P0-06 | Hand crafting | Compare craft eligibility, elapsed ticks, ingredient consumption, output delta and craft-related events for one unlocked recipe. |
-| P0-07 | Placement | Compare reach/collision rejection and, for a valid placement, inventory delta, placed entity identity and placement events. |
-| P0-08 | Inventory capacity | Compare accepted/rejected transfer behaviour at normal capacity and at a deliberately full inventory. No items may be granted or removed outside the tested operation. |
-| P0-09 | Death and respawn | Compare health, death/corpse/inventory-loss behaviour, respawn timing and post-respawn inventory. Detect any duplication or consequence bypass. |
+| P1-04 | Movement and collision | Phase-1 promotion gate after `walk_to` exists: compare elapsed ticks, final position and collision/reach result for an equal-distance walk into clear terrain and against an obstacle. |
+| P1-05 | Mining | Phase-1 promotion gate after `mine` exists: compare target eligibility, elapsed ticks, inventory delta, target result and emitted mining events for one manually selected resource/entity. |
+| P1-06 | Hand crafting | Phase-1 promotion gate after `craft` exists: compare craft eligibility, elapsed ticks, ingredient consumption, output delta and craft-related events for one unlocked recipe. |
+| P1-07 | Placement | Phase-1 promotion gate after placement exists: compare reach/collision rejection and, for a valid placement, inventory delta, placed entity identity and placement events. |
+| P1-08 | Inventory capacity | Phase-1 promotion gate after transfers exist: compare accepted/rejected transfer behaviour at normal capacity and at a deliberately full inventory. No items may be granted or removed outside the tested operation. |
+| P1-09 | Death and respawn | Phase-1 promotion gate after death/respawn handling exists: compare health, death/corpse/inventory-loss behaviour, respawn timing and post-respawn inventory. Detect any duplication or consequence bypass. |
 
 ## Evaluation
 
@@ -74,9 +75,10 @@ A material deviation includes, at minimum:
 
 ## Go/Pivot decision
 
-Go is permitted only when every required probe has retained evidence and no
+Phase-0 Go is permitted when P0-01 through P0-03 have retained evidence and no
 material deviation. The project remains observation-only until that decision is
-recorded and reviewed.
+recorded and reviewed. Each P1 probe must pass before promoting its corresponding
+gameplay primitive.
 
 Pivot to a permanently connected, dedicated Factorio client when any required
 ordinary-player mechanic or relevant event cannot be demonstrated as equivalent

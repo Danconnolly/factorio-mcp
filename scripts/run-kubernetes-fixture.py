@@ -24,7 +24,7 @@ from typing import Any, NoReturn
 
 ROOT = Path(__file__).resolve().parent.parent
 MOD_ROOT = ROOT / "mods" / "factorio-fair-play-bridge"
-IMAGE = os.environ.get("FACTORIO_FIXTURE_IMAGE", "factoriotools/factorio:2.0.77")
+IMAGE = os.environ.get("FACTORIO_FIXTURE_IMAGE", "factoriotools/factorio:2.1.17")
 TIMEOUT_SECONDS = int(os.environ.get("FACTORIO_FIXTURE_TIMEOUT_SECONDS", "180"))
 
 

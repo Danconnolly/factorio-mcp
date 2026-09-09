@@ -84,20 +84,29 @@ Deliver:
 4. Bounded, chart-aware read-only observation.
 5. Capability manifest containing only read operations.
 6. Structured, append-only audit-receipt format.
-7. Manual differential-test procedure with a dedicated real client and retained
-   probe evidence.
+7. Manual differential-test procedure with a dedicated real client, plus
+   retained read-only lifecycle and human-isolation probe evidence.
 8. Versioned capability contract, structured error codes and action-ID lifecycle
    contract.
 9. Vanilla rocket-path capability coverage matrix.
 
 Required gate:
 
-Run initial probes comparing virtual actor and human player behaviour for movement, mining, hand crafting, placement, inventory capacity and death/respawn. Record elapsed ticks, positions, inventory deltas, results and observed events.
+Run the available read-only probes: zero-client actor status, MCP/RCON reconnect,
+save/restart persistence, bounded observation and human isolation. Record actor
+identity, unit number, positions, relevant observations, server state and
+connected-player counts. The movement, mining, hand-crafting, placement,
+inventory-capacity and death/respawn comparisons are Phase-1 promotion gates:
+each is performed only after its corresponding primitive exists.
 
 Decision:
 
-- Continue only if the virtual actor can plausibly meet the requirements through tested mechanics.
-- Pivot to a dedicated connected client if material behaviour or required events cannot match.
+- Continue to Phase 1 only if the virtual actor demonstrates stable isolated
+  lifecycle and bounded observation in the disposable fixture.
+- Before promoting each Phase-1 primitive, continue only if its virtual-actor
+  differential probe plausibly meets the ordinary-player requirement.
+- Pivot to a dedicated connected client if a material behaviour or required
+  event cannot match.
 
 ## Phase 1 — strict primitive gameplay actions
 

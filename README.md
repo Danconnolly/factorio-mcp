@@ -11,11 +11,14 @@ research, death and respawn consequences, or the implementation does not qualify
 
 ## Status
 
-Phase 0 read-only foundation. The repository contains the requirements,
-open-source assessment, implementation plan, Factorio 2.0 bridge shell,
-versioned capability contract, bounded read-only MCP service and tamper-evident
-audit sink. It exposes no gameplay controls. No gameplay controller should be
-attached to a valued save at this stage.
+Phase 0 complete: read-only foundation and feasibility gate. The repository
+contains the requirements, open-source assessment, implementation plan, tested
+Factorio 2.1 bridge shell, versioned capability contract, bounded read-only MCP
+service and tamper-evident audit sink. Automated disposable-fixture gates and
+the manual real-client human-isolation check passed; see
+[Phase-0 completion record](docs/phase-0-completion.md). It exposes no gameplay
+controls. No gameplay controller should be attached to a valued save at this
+stage.
 
 ## Design constraints
 
@@ -47,6 +50,8 @@ attached to a valued save at this stage.
   including the initial feasibility gate and release verification suite.
 - [Phase-0 differential procedure](docs/phase-0-differential-procedure.md) —
   mandatory manual evidence and Go/Pivot decision procedure.
+- [Phase-0 completion record](docs/phase-0-completion.md) — retained summary of
+  the completed read-only feasibility gate and Phase-1 promotion boundary.
 - [Optional Kubernetes fixture](docs/kubernetes-fixture.md) — opt-in,
   default-scheduled disposable-server provider for the ignored integration
   checks; it is not required for unit tests.
