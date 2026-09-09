@@ -91,6 +91,11 @@ function read_only.capability_contract(character)
     actor_id = status.actor_id,
     force_id = status.force.name,
     profile_name = "phase-zero-read-only",
+    scheduling = {
+      execution = "read_only",
+      observation_tick = "bridge_tick_snapshot",
+      request_order = "serialized",
+    },
     observation_limits = {
       max_radius = config.MAX_OBSERVATION_RADIUS,
       max_result_count = config.MAX_OBSERVATION_RESULTS,

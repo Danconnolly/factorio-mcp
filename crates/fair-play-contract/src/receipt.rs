@@ -148,6 +148,25 @@ impl AuditChain {
         Ok(envelope)
     }
 
+    /// Restores an append cursor after verifying every persisted envelope.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`Self::verify`] when the persisted chain is invalid.
+    pub fn from_verified(envelopes: &[AuditEnvelope]) -> Result<Self, ContractError> {
+        Self::verify(envelopes)?;
+        let next_sequence = u64::try_from(envelopes.len())
+            .map_err(|_| ContractError::new(ErrorCode::Internal, "audit sequence exhausted"))?;
+        let previous_digest = envelopes.last().map_or_else(
+            || Self::GENESIS_DIGEST.to_owned(),
+            |envelope| envelope.envelope_digest.clone(),
+        );
+        Ok(Self {
+            next_sequence,
+            previous_digest,
+        })
+    }
+
     /// Verifies sequence continuity and each record and envelope digest.
     ///
     /// # Errors

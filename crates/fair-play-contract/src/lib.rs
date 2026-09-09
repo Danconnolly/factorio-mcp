@@ -16,8 +16,8 @@ pub use error::{ContractError, ErrorCode};
 pub use model::{
     ActorId, ActorLifecycleState, ActorStatus, BridgeVersions, CapabilityContract, EnabledMod,
     EntityRecord, ForceId, ForceIdentity, InventoryItemSummary, InventorySummary,
-    ObservationLimits, Position, ProfileName, Provenance, ResourceRecord, SchedulingSemantics,
-    SurfaceIdentity, TileRecord,
+    ObservationLimits, PhaseZeroCapabilities, Position, ProfileName, Provenance, ResourceRecord,
+    SchedulingSemantics, SurfaceIdentity, TileRecord,
 };
 pub use receipt::{
     ActionId, ActionState, AuditChain, AuditEnvelope, AuditRecord, ObservationRecord,

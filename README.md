@@ -11,11 +11,11 @@ research, death and respawn consequences, or the implementation does not qualify
 
 ## Status
 
-Phase 0 workspace skeleton. The repository now contains the requirements,
-open-source assessment, implementation plan, Rust workspace and minimal
-Factorio 2.0 bridge-mod shell. It does not yet expose gameplay controls or a
-working MCP server. No gameplay controller should be attached to a valued save
-at this stage.
+Phase 0 read-only foundation. The repository contains the requirements,
+open-source assessment, implementation plan, Factorio 2.0 bridge shell,
+versioned capability contract, bounded read-only MCP service and tamper-evident
+audit sink. It exposes no gameplay controls. No gameplay controller should be
+attached to a valued save at this stage.
 
 ## Design constraints
 
@@ -45,6 +45,8 @@ at this stage.
   Factorio/MCP projects against the requirements.
 - [Implementation plan](docs/implementation-plan.md) — phased delivery plan,
   including the initial feasibility gate and release verification suite.
+- [Phase-0 differential procedure](docs/phase-0-differential-procedure.md) —
+  mandatory manual evidence and Go/Pivot decision procedure.
 
 ## Implementation direction
 

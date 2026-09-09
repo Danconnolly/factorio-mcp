@@ -1,6 +1,6 @@
 use fair_play_contract::{
-    ActorId, Capability, CapabilityContract, EnabledMod, ForceId, ObservationLimits, ProfileName,
-    Provenance, SCHEMA_VERSION, SchedulingSemantics,
+    ActorId, Capability, CapabilityContract, EnabledMod, ForceId, ObservationLimits,
+    PhaseZeroCapabilities, ProfileName, Provenance, SCHEMA_VERSION, SchedulingSemantics,
 };
 use serde_json::json;
 
@@ -16,6 +16,7 @@ fn contract_with_fixed_limits() -> CapabilityContract {
         profile_name: ProfileName::new("phase-zero-read-only"),
         observation_limits: ObservationLimits::new(32, 128, 4, 32 * 1024),
         scheduling: SchedulingSemantics::phase_zero(),
+        capabilities: PhaseZeroCapabilities::exact(),
         supported_provenance: vec![Provenance::CharacterLocal, Provenance::ForceCharted],
         current_game_tick: 1,
     }

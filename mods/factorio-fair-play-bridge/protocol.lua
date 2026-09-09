@@ -62,6 +62,15 @@ function protocol.query(request)
     return { ok = false, error = error }
   end
 
+  -- Retained records remain inspectable after the actor is unavailable.
+  if request.name == "get_action_record" then
+    local result, error = read_only.get_action_record(request)
+    if not result then
+      return { ok = false, error = error }
+    end
+    return { ok = true, result = result }
+  end
+
   local character, lifecycle_state = actor.resolve_stored()
   if not character then
     return rejected("ACTOR_UNAVAILABLE", lifecycle_state)

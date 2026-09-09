@@ -1,5 +1,7 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::{SCHEMA_VERSION, capability::Capability};
 
@@ -101,9 +103,79 @@ pub struct CapabilityContract {
     pub profile_name: ProfileName,
     pub observation_limits: ObservationLimits,
     pub scheduling: SchedulingSemantics,
+    /// The complete fixed Phase-0 manifest, in protocol dispatch order.
+    pub capabilities: PhaseZeroCapabilities,
     /// Provenance vocabulary this bridge can attach to observations.
     pub supported_provenance: Vec<Provenance>,
     pub current_game_tick: u64,
+}
+
+/// The only capability manifest permitted by the Phase-0 protocol.
+///
+/// The tuple schema and deserialization check reject additions, omissions,
+/// reordering, and duplicates rather than merely accepting six capabilities.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct PhaseZeroCapabilities([Capability; 6]);
+
+impl PhaseZeroCapabilities {
+    #[must_use]
+    pub const fn exact() -> Self {
+        Self(crate::capability::PHASE_ZERO_CAPABILITIES)
+    }
+
+    #[must_use]
+    pub const fn as_array(&self) -> &[Capability; 6] {
+        &self.0
+    }
+}
+
+impl Default for PhaseZeroCapabilities {
+    fn default() -> Self {
+        Self::exact()
+    }
+}
+
+impl<'de> Deserialize<'de> for PhaseZeroCapabilities {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let capabilities = <[Capability; 6]>::deserialize(deserializer)?;
+        if capabilities != crate::capability::PHASE_ZERO_CAPABILITIES {
+            return Err(de::Error::custom(
+                "capabilities must be the exact Phase-0 manifest",
+            ));
+        }
+        Ok(Self(capabilities))
+    }
+}
+
+impl JsonSchema for PhaseZeroCapabilities {
+    fn schema_name() -> Cow<'static, str> {
+        "PhaseZeroCapabilities".into()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "type": "array",
+            "prefixItems": [
+                { "const": "get_capability_contract" },
+                { "const": "get_actor_status" },
+                { "const": "scan_local" },
+                { "const": "scan_charted" },
+                { "const": "get_entity" },
+                { "const": "get_action_record" }
+            ],
+            "items": false,
+            "minItems": 6,
+            "maxItems": 6
+        })
+    }
 }
 
 impl CapabilityContract {

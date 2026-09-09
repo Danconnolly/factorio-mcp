@@ -1,10 +1,10 @@
 use fair_play_contract::{
     ActionId, ActionState, ActorId, ActorLifecycleState, ActorStatus, AuditChain, AuditRecord,
     BridgeVersions, Capability, CapabilityContract, EnabledMod, ForceId, ForceIdentity,
-    InventoryItemSummary, InventorySummary, ObservationLimits, ObservationRecord, Position,
-    ProfileName, Provenance, SCHEMA_VERSION, SchedulingSemantics, SurfaceIdentity,
-    actor_status_schema, audit_envelope_schema, audit_schema, canonical_json, capability_schema,
-    entity_record_schema, resource_record_schema, tile_record_schema,
+    InventoryItemSummary, InventorySummary, ObservationLimits, ObservationRecord,
+    PhaseZeroCapabilities, Position, ProfileName, Provenance, SCHEMA_VERSION, SchedulingSemantics,
+    SurfaceIdentity, actor_status_schema, audit_envelope_schema, audit_schema, canonical_json,
+    capability_schema, entity_record_schema, resource_record_schema, tile_record_schema,
 };
 use serde_json::Value;
 use std::fs;
@@ -21,6 +21,7 @@ fn contract() -> CapabilityContract {
         profile_name: ProfileName::new("phase-zero"),
         observation_limits: ObservationLimits::new(32, 128, 4, 32 * 1024),
         scheduling: SchedulingSemantics::phase_zero(),
+        capabilities: PhaseZeroCapabilities::exact(),
         supported_provenance: vec![
             Provenance::CharacterLocal,
             Provenance::ForceCharted,
@@ -261,6 +262,32 @@ fn audit_hash_chain_is_deterministic_for_fixed_records() {
     assert_eq!(envelopes[1].sequence, 1);
     assert_eq!(envelopes[1].previous_digest, envelopes[0].envelope_digest);
     AuditChain::verify(&envelopes).expect("fixed chain verifies");
+}
+
+#[test]
+fn contract_manifest_is_schema_and_deserialization_exact() {
+    let value = serde_json::to_value(contract()).expect("contract serializes");
+    assert_eq!(
+        value["capabilities"],
+        serde_json::json!([
+            "get_capability_contract",
+            "get_actor_status",
+            "scan_local",
+            "scan_charted",
+            "get_entity",
+            "get_action_record"
+        ])
+    );
+    let schema = serde_json::to_value(capability_schema()).expect("schema serializes");
+    assert_eq!(
+        schema["properties"]["capabilities"]["prefixItems"][0]["const"],
+        "get_capability_contract"
+    );
+    assert_eq!(schema["properties"]["capabilities"]["items"], false);
+
+    let mut invalid = value;
+    invalid["capabilities"][0] = serde_json::json!("get_actor_status");
+    assert!(serde_json::from_value::<CapabilityContract>(invalid).is_err());
 }
 
 #[test]
