@@ -17,14 +17,38 @@ pub const MAX_LUA_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
 pub enum BridgeCommand {
     GetCapabilityContract,
     GetActorStatus,
-    ScanLocal { radius: u32 },
-    ScanCharted { center: Position, radius: u32 },
-    GetEntity { target: EntityTarget },
-    GetActionRecord { sequence: u64 },
-    WalkTo { action_id: String, target: Position },
-    Stop { action_id: String },
-    Mine { action_id: String, target: Position },
-    GetAction { action_id: String },
+    ScanLocal {
+        radius: u32,
+    },
+    ScanCharted {
+        center: Position,
+        radius: u32,
+    },
+    GetEntity {
+        target: EntityTarget,
+    },
+    GetActionRecord {
+        sequence: u64,
+    },
+    WalkTo {
+        action_id: String,
+        target: Position,
+    },
+    Stop {
+        action_id: String,
+    },
+    Mine {
+        action_id: String,
+        target: Position,
+    },
+    Craft {
+        action_id: String,
+        recipe: String,
+        count: u32,
+    },
+    GetAction {
+        action_id: String,
+    },
 }
 
 /// The only two policy-approved ways to identify an entity.
@@ -54,6 +78,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: None,
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::GetActorStatus => QueryRequest {
                 name: "get_actor_status",
@@ -64,6 +90,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: None,
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::ScanLocal { radius } => QueryRequest {
                 name: "scan_local",
@@ -74,6 +102,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: None,
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::ScanCharted { center, radius } => QueryRequest {
                 name: "scan_charted",
@@ -84,6 +114,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: None,
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::GetEntity { target } => match target {
                 EntityTarget::IssuedId(entity_id) => QueryRequest {
@@ -95,6 +127,8 @@ impl BridgeCommand {
                     sequence: None,
                     action_id: None,
                     target: None,
+                    recipe: None,
+                    count: None,
                 },
                 EntityTarget::Position(position) => QueryRequest {
                     name: "get_entity",
@@ -105,6 +139,8 @@ impl BridgeCommand {
                     sequence: None,
                     action_id: None,
                     target: None,
+                    recipe: None,
+                    count: None,
                 },
             },
             Self::GetActionRecord { sequence } => QueryRequest {
@@ -116,6 +152,8 @@ impl BridgeCommand {
                 sequence: Some(*sequence),
                 action_id: None,
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::WalkTo { action_id, target } => QueryRequest {
                 name: "walk_to",
@@ -126,6 +164,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: Some(action_id),
                 target: Some(*target),
+                recipe: None,
+                count: None,
             },
             Self::Stop { action_id } => QueryRequest {
                 name: "stop",
@@ -136,6 +176,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: Some(action_id),
                 target: None,
+                recipe: None,
+                count: None,
             },
             Self::Mine { action_id, target } => QueryRequest {
                 name: "mine",
@@ -146,6 +188,24 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: Some(action_id),
                 target: Some(*target),
+                recipe: None,
+                count: None,
+            },
+            Self::Craft {
+                action_id,
+                recipe,
+                count,
+            } => QueryRequest {
+                name: "craft",
+                radius: None,
+                center: None,
+                entity_id: None,
+                position: None,
+                sequence: None,
+                action_id: Some(action_id),
+                target: None,
+                recipe: Some(recipe),
+                count: Some(*count),
             },
             Self::GetAction { action_id } => QueryRequest {
                 name: "get_action",
@@ -156,6 +216,8 @@ impl BridgeCommand {
                 sequence: None,
                 action_id: Some(action_id),
                 target: None,
+                recipe: None,
+                count: None,
             },
         };
         let canonical_request = canonical_json(&request).map_err(|_| RconError::Bridge {
@@ -182,7 +244,7 @@ impl BridgeCommand {
     pub(crate) const fn is_mutation(&self) -> bool {
         matches!(
             self,
-            Self::WalkTo { .. } | Self::Stop { .. } | Self::Mine { .. }
+            Self::WalkTo { .. } | Self::Stop { .. } | Self::Mine { .. } | Self::Craft { .. }
         )
     }
 
@@ -191,6 +253,7 @@ impl BridgeCommand {
             Self::WalkTo { .. }
             | Self::Stop { .. }
             | Self::Mine { .. }
+            | Self::Craft { .. }
             | Self::GetAction { .. } => COMMAND_METHOD,
             _ => QUERY_METHOD,
         }
@@ -215,6 +278,10 @@ struct QueryRequest<'a> {
     action_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     target: Option<Position>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recipe: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    count: Option<u32>,
 }
 
 #[cfg(test)]

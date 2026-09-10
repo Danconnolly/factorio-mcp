@@ -66,7 +66,7 @@ def package_bridge(target: Path) -> None:
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(MOD_ROOT.rglob("*")):
             if path.is_file():
-                archive.write(path, f"factorio-agent-bridge_0.3.0/{path.relative_to(MOD_ROOT).as_posix()}")
+                archive.write(path, f"factorio-agent-bridge_0.4.0/{path.relative_to(MOD_ROOT).as_posix()}")
 
 
 def sha256(path: Path) -> str:
@@ -172,7 +172,7 @@ def server_manifest(namespace: str) -> str:
                                 "initContainers": [{
                                     "name": "install-fixture-inputs",
                                     "image": "busybox:1.37.0",
-                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.3.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /source/server-settings.json /factorio/config/server-settings.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
+                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.4.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /source/server-settings.json /factorio/config/server-settings.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
                                     "volumeMounts": [{"name": "data", "mountPath": "/factorio"}, {"name": "bridge", "mountPath": "/source", "readOnly": True}, {"name": "rcon", "mountPath": "/secret", "readOnly": True}],
                                 }],
                                 "containers": [{
@@ -267,6 +267,10 @@ def fixed_action(namespace: str, pod: str, action: str, *, target: dict[str, flo
         request = '{name="get_action",action_id="fixture-mine-cancel"}'
     elif action == "mine_stop":
         request = '{name="stop",action_id="fixture-mine-stop"}'
+    elif action == "craft_zero":
+        request = '{name="craft",action_id="fixture-craft-zero",recipe="iron-gear-wheel",count=1}'
+    elif action == "get_craft_zero":
+        request = '{name="get_action",action_id="fixture-craft-zero"}'
     else:
         fail(f"unknown fixed fixture action: {action}")
     lua = f'/c rcon.print(helpers.table_to_json(remote.call("factorio_agent_bridge","command",{request})))'
@@ -436,6 +440,22 @@ def run_mine(namespace: str, pod: str, report: dict[str, Any]) -> str:
     return pod
 
 
+def run_craft(namespace: str, pod: str, report: dict[str, Any]) -> None:
+    """Exercise the fixed zero-client hand-crafting feasibility boundary.
+
+    The retained seed starts Alfred with an intentionally empty inventory. It
+    therefore lets the bridge prove whether the virtual actor exposes the native
+    hand-crafting queue required by the fair-play contract.
+    """
+    initial = assert_ok(fixed_query(namespace, pod, "status"), "craft initial status")
+    if initial["inventory"]["total"] != 0:
+        fail("craft zero-start fixture requires the documented empty actor inventory")
+    result = fixed_action(namespace, pod, "craft_zero")
+    if result.get("ok") is not False or result.get("error", {}).get("code") != "OUT_OF_POLICY":
+        fail(f"zero-client craft did not fail closed when the native queue was unavailable: {result}")
+    report["craft_virtual_actor_gate"] = {"initial_status": initial, "rejection": result}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--save", required=True, type=Path, help="copied disposable Factorio save")
@@ -445,6 +465,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assert-max-payload-bytes", type=int)
     parser.add_argument("--assert-walk", action="store_true")
     parser.add_argument("--assert-mine", action="store_true")
+    parser.add_argument("--assert-craft", action="store_true")
     return parser.parse_args()
 
 
@@ -458,8 +479,9 @@ def main() -> int:
     observation = args.assert_local_radius is not None
     walk = args.assert_walk
     mine = args.assert_mine
-    if sum((lifecycle, observation, walk, mine)) != 1:
-        fail("runner invocation must be exactly one of lifecycle, observation, walk/stop, or mine")
+    craft = args.assert_craft
+    if sum((lifecycle, observation, walk, mine, craft)) != 1:
+        fail("runner invocation must be exactly one of lifecycle, observation, walk/stop, mine, or craft")
     if lifecycle and not args.mod_settings.is_file():
         fail(f"mod-settings fixture does not exist: {args.mod_settings}")
     if observation and (args.assert_max_results is None or args.assert_max_payload_bytes is None):
@@ -467,7 +489,7 @@ def main() -> int:
 
     namespace = f"factorio-fixture-{secrets.token_hex(4)}"
     report_dir = ROOT / "test-reports" / namespace
-    mode = "lifecycle" if lifecycle else "observation" if observation else "walk-stop" if walk else "mine"
+    mode = "lifecycle" if lifecycle else "observation" if observation else "walk-stop" if walk else "mine" if mine else "craft"
     report: dict[str, Any] = {"namespace": namespace, "input_save_sha256": sha256(args.save), "mode": mode, "image": IMAGE}
     pod: str | None = None
     with tempfile.TemporaryDirectory(prefix="factorio-fixture-") as temporary:
@@ -502,8 +524,10 @@ def main() -> int:
                 run_observation(namespace, pod, report, args)
             elif walk:
                 run_walk_stop(namespace, pod, report)
-            else:
+            elif mine:
                 pod = run_mine(namespace, pod, report)
+            else:
+                run_craft(namespace, pod, report)
             report["result"] = "passed"
             return 0
         finally:

@@ -50,6 +50,7 @@ fn phase_one_capability_allow_list_is_exact_and_excludes_prohibited_mutation() {
             "walk_to",
             "stop",
             "mine",
+            "craft",
             "get_action",
         ]
     );
@@ -283,6 +284,7 @@ fn contract_manifest_is_schema_and_deserialization_exact() {
             "walk_to",
             "stop",
             "mine",
+            "craft",
             "get_action"
         ])
     );

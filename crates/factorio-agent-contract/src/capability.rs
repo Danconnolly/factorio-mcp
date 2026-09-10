@@ -14,6 +14,7 @@ pub enum Capability {
     WalkTo,
     Stop,
     Mine,
+    Craft,
     GetAction,
 }
 
@@ -30,6 +31,7 @@ impl Capability {
             Self::WalkTo => "walk_to",
             Self::Stop => "stop",
             Self::Mine => "mine",
+            Self::Craft => "craft",
             Self::GetAction => "get_action",
         }
     }
@@ -40,8 +42,8 @@ impl Capability {
     }
 }
 
-/// The complete Phase-1 walk/stop/mine surface. Additive changes require a policy version change.
-pub const PHASE_ONE_CAPABILITIES: [Capability; 10] = [
+/// The complete Phase-1 walk/stop/mine/craft surface. Additive changes require a policy version change.
+pub const PHASE_ONE_CAPABILITIES: [Capability; 11] = [
     Capability::GetCapabilityContract,
     Capability::GetActorStatus,
     Capability::ScanLocal,
@@ -51,5 +53,6 @@ pub const PHASE_ONE_CAPABILITIES: [Capability; 10] = [
     Capability::WalkTo,
     Capability::Stop,
     Capability::Mine,
+    Capability::Craft,
     Capability::GetAction,
 ];

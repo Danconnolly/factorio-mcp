@@ -18,6 +18,7 @@ local ALLOWED_COMMANDS = {
   walk_to = true,
   stop = true,
   mine = true,
+  craft = true,
   get_action = true,
 }
 
@@ -59,6 +60,10 @@ local function command_is_valid(request)
   if request.name == "mine" then
     return only_fields(request, { name = true, action_id = true, target = true })
       and request.action_id ~= nil and request.target ~= nil
+  end
+  if request.name == "craft" then
+    return only_fields(request, { name = true, action_id = true, recipe = true, count = true })
+      and request.action_id ~= nil and request.recipe ~= nil and request.count ~= nil
   end
   return only_fields(request, { name = true, action_id = true }) and request.action_id ~= nil
 end

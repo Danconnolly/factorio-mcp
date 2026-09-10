@@ -121,6 +121,15 @@ Add one primitive at a time, with a receipt and conservation test before proceed
 6. `insert`, `extract`, `set_recipe` and `pickup`.
 7. `select_research` and measured `wait`.
 
+### Craft feasibility result
+
+The virtual-headless actor failed the `craft` feasibility gate on Factorio
+`2.1.17`: it has no native hand-crafting queue. The retained probe and decision
+are in [Phase-1 craft feasibility record](phase-1-craft-feasibility.md). Do not
+replace this with bridge-simulated ingredient removal, delay, or output
+insertion. Future fair-play crafting must pivot to a permanently connected
+dedicated Factorio client before it can be promoted.
+
 Every action must report actor ID, action ID, result or rejection reason, start/end tick, start/end position, health, inventory delta, affected entity IDs and fair-play policy version.
 
 Do not add blueprint execution, batch construction, production macros or other

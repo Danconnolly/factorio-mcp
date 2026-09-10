@@ -1,10 +1,10 @@
 local config = {}
 
 config.BRIDGE_INTERFACE = "factorio_agent_bridge"
-config.BRIDGE_BUILD = "0.3.0"
+config.BRIDGE_BUILD = "0.4.0"
 config.LIFECYCLE_SCHEMA_VERSION = 1
-config.SCHEMA_VERSION = "0.3.0"
-config.POLICY_VERSION = "0.3.0"
+config.SCHEMA_VERSION = "0.4.0"
+config.POLICY_VERSION = "0.4.0"
 config.DEFAULT_ACTOR_ID = "alfred"
 config.ACTOR_ID_SETTING = "factorio-agent-bridge-actor-id"
 config.MAX_INVENTORY_TYPES = 32
@@ -16,6 +16,10 @@ config.WALK_PROGRESS_EPSILON = 0.001
 config.MAX_STALLED_WALK_TICKS = 120
 config.MAX_STALLED_MINE_TICKS = 120
 config.MINE_TARGET_TOLERANCE = 0.25
+-- Crafting starts only from an empty native queue, so a stop request can cancel
+-- only work that this bridge action caused without touching external work.
+config.MAX_CRAFT_COUNT = 100
+config.MAX_STALLED_CRAFT_TICKS = 120
 
 -- These fixed limits are reported by get_capability_contract and enforced by
 -- scripts/observation_policy.lua. They are deliberately not client configurable.
