@@ -1,5 +1,12 @@
 # Factorio Agent Bridge
 
+This project is abandoned. The problem is that the headless factorio server does
+not implement the crafting capabilities. Now it would be possible to emulate this,
+but that would be effectively re-writing sections of the factorio client, which
+I dont want to do.
+
+## Old Documentation
+
 Factorio Agent Bridge is a Factorio 2.x mod and Model Context Protocol (MCP)
 project for an AI harness to inspect and operate one dedicated, persistent
 in-game character without granting it administrative shortcuts.
