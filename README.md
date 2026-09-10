@@ -32,6 +32,12 @@ differential, including the Factorio 2.x quality-aware inventory path. See the
 walk/stop and mine are promoted; no gameplay controller should be attached to a
 valued save at this stage.
 
+Phase 1 / craft feasibility gate: the disposable zero-client probe established
+that the virtual headless actor has no native hand-crafting queue. `craft` is
+therefore fail-closed and not promoted; the fair-play route for it is a
+permanently connected dedicated Factorio client. See the [Phase-1 craft
+feasibility record](docs/phase-1-craft-feasibility.md).
+
 ## Design constraints
 
 - One configured, persistent MCP actor; it must never implicitly select or alter
@@ -68,6 +74,8 @@ valued save at this stage.
   — retained, sanitized evidence for the P1-04 movement promotion gate.
 - [Phase-1 mine completion record](docs/phase-1-mine-completion.md)
   — retained, sanitized evidence for the mining promotion gate.
+- [Phase-1 craft feasibility record](docs/phase-1-craft-feasibility.md)
+  — zero-client gate result and required connected-client pivot.
 - [Optional Kubernetes fixture](docs/kubernetes-fixture.md) — opt-in,
   default-scheduled disposable-server provider for the ignored integration
   checks; it is not required for unit tests.

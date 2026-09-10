@@ -54,6 +54,7 @@ fn phase_one_capabilities_preserve_observation_provenance() {
             "walk_to",
             "stop",
             "mine",
+            "craft",
             "get_action",
         ]
     );

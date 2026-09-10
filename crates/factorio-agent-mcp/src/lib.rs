@@ -442,6 +442,37 @@ impl PhaseZeroServer {
     }
 
     #[tool(
+        name = "craft",
+        description = "Queue one bounded native hand-crafting action for the bridge-owned character.",
+        annotations(destructive_hint = false, idempotent_hint = true)
+    )]
+    async fn craft(&self, Parameters(input): Parameters<CraftInput>) -> CallToolResult {
+        if let Err(error) = validate_action_id(&input.action_id)
+            .and_then(|()| validate_recipe(&input.recipe))
+            .and_then(|()| validate_craft_count(input.count))
+        {
+            return error_result(error);
+        }
+        match self
+            .call(BridgeCommand::Craft {
+                action_id: input.action_id,
+                recipe: input.recipe,
+                count: input.count,
+            })
+            .await
+        {
+            Ok(BridgeResponse::Action(receipt)) => self.audited_result(
+                &receipt,
+                AuditRecord::Mutation {
+                    receipt: receipt.clone(),
+                },
+            ),
+            Ok(_) => error_result(internal_mismatch()),
+            Err(error) => error_result(error),
+        }
+    }
+
+    #[tool(
         name = "get_action",
         description = "Read a durable bridge-owned action state or terminal receipt by action ID.",
         annotations(read_only_hint = true)
@@ -557,6 +588,14 @@ struct MineInput {
     target: Position,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct CraftInput {
+    action_id: String,
+    recipe: String,
+    count: u32,
+}
+
 fn validate_radius(radius: u32) -> Result<(), ContractError> {
     if radius == 0 || radius > MAX_HOST_RADIUS {
         return Err(ContractError::new(
@@ -597,6 +636,33 @@ fn validate_action_id(action_id: &str) -> Result<(), ContractError> {
         Err(ContractError::new(
             ErrorCode::InvalidArgument,
             "action_id must be 1-128 ASCII letters, digits, '.', '_', ':', or '-'",
+        ))
+    }
+}
+
+fn validate_recipe(recipe: &str) -> Result<(), ContractError> {
+    let valid = !recipe.is_empty()
+        && recipe.len() <= 128
+        && recipe.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(ContractError::new(
+            ErrorCode::InvalidArgument,
+            "recipe must be 1-128 lowercase ASCII letters, digits, '_' or '-'",
+        ))
+    }
+}
+
+fn validate_craft_count(count: u32) -> Result<(), ContractError> {
+    if count > 0 && count <= 100 {
+        Ok(())
+    } else {
+        Err(ContractError::new(
+            ErrorCode::InvalidArgument,
+            "count must be between 1 and 100",
         ))
     }
 }
@@ -743,6 +809,7 @@ mod tests {
         assert_eq!(
             names,
             [
+                "craft",
                 "get_action",
                 "get_action_record",
                 "get_actor_status",

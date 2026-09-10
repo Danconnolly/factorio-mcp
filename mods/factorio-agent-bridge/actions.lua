@@ -138,11 +138,38 @@ local function target_is_valid(target)
     and target.y ~= -math.huge
 end
 
-local function fingerprint(kind, target)
+local function fingerprint(kind, target, recipe, count)
   if target then
     return kind .. ":" .. string.format("%.17g:%.17g", target.x, target.y)
   end
+  if recipe then return kind .. ":" .. recipe .. ":" .. count end
   return kind
+end
+
+local function recipe_is_valid(recipe)
+  return type(recipe) == "string" and #recipe > 0 and #recipe <= 128
+    and recipe:match("^[a-z0-9][a-z0-9_-]*$") ~= nil
+end
+
+local function craft_count_is_valid(count)
+  return type(count) == "number" and count % 1 == 0 and count > 0 and count <= config.MAX_CRAFT_COUNT
+end
+
+local function crafting_queue_snapshot(character)
+  local entries = {}
+  for _, entry in pairs(character.crafting_queue) do
+    entries[#entries + 1] = { index = entry.index, recipe = entry.recipe, count = entry.count, prerequisite = entry.prerequisite }
+  end
+  table.sort(entries, function(left, right) return left.index < right.index end)
+  return entries
+end
+
+local function crafting_queue_fingerprint(character)
+  local parts = { tostring(character.crafting_queue_size), string.format("%.9g", character.crafting_queue_progress) }
+  for _, entry in pairs(crafting_queue_snapshot(character)) do
+    parts[#parts + 1] = entry.index .. ":" .. entry.recipe .. ":" .. entry.count .. ":" .. tostring(entry.prerequisite)
+  end
+  return table.concat(parts, "|")
 end
 
 local function existing_or_conflict(action_id, request_fingerprint)
@@ -188,6 +215,15 @@ local function clear_character_input(character, record)
     character.walking_state = { walking = false, direction = record.last_direction or defines.direction.north }
   elseif record.kind == "mine" then
     character.mining_state = { mining = false }
+  elseif record.kind == "craft" then
+    -- Admission requires an empty queue, so all current queue work is this action's.
+    local attempts = 0
+    while character.crafting_queue_size > 0 and attempts < config.MAX_CRAFT_COUNT * 8 do
+      local entry = character.crafting_queue[1]
+      if not entry then break end
+      character.cancel_crafting({ index = entry.index, count = entry.count })
+      attempts = attempts + 1
+    end
   end
 end
 
@@ -267,6 +303,10 @@ function actions.stop(request)
   if state.active_action_id then
     local active = state.actions_by_id[state.active_action_id]
     clear_character_input(character, active)
+    if active.kind == "craft" then
+      active.queue_after = crafting_queue_snapshot(character)
+      active.cancelled_count = active.started_count - active.completed_count
+    end
     finalise(character, active, "cancelled", "STOP_REQUESTED", "cancelled by a serialized stop request")
     state.active_action_id = nil
     stop_record.result = { code = "STOPPED", reason = "active gameplay input was cleared" }
@@ -304,6 +344,54 @@ function actions.mine(request)
   record.inventory_before = inventory_contents(character)
   record.last_mining_progress = 0
   record.stalled_ticks = 0
+  state.actions_by_id[request.action_id] = record
+  state.active_action_id = request.action_id
+  audit.mutation(record)
+  return record
+end
+
+function actions.craft(request)
+  if type(request) ~= "table" or not action_id_is_valid(request.action_id)
+    or not recipe_is_valid(request.recipe) or not craft_count_is_valid(request.count) then
+    return nil, { code = "INVALID_ARGUMENT", detail = "craft requires a valid action_id, recipe, and bounded positive count" }
+  end
+  local request_fingerprint = fingerprint("craft", nil, request.recipe, request.count)
+  local existing, conflict = existing_or_conflict(request.action_id, request_fingerprint)
+  if existing then return existing end
+  if conflict then return nil, conflict end
+
+  local character, lifecycle_state = actor.resolve_stored()
+  if not character then return nil, { code = "ACTOR_UNAVAILABLE", detail = lifecycle_state } end
+  -- Factorio's virtual character in the current headless API does not expose
+  -- the native hand-crafting queue that a LuaPlayer owns. Fail closed rather
+  -- than claiming queued ordinary crafting or touching inventory ourselves.
+  if type(character.begin_crafting) ~= "function" or type(character.crafting_queue) ~= "table"
+    or type(character.crafting_queue_size) ~= "number" then
+    return nil, { code = "OUT_OF_POLICY", detail = "the configured virtual actor has no native hand-crafting queue; use a connected player actor" }
+  end
+  local recipe = character.force.recipes[request.recipe]
+  if not (recipe and recipe.valid) then
+    return nil, { code = "NOT_FOUND", detail = "recipe does not exist for the actor force" }
+  end
+  if not recipe.enabled then
+    return nil, { code = "OUT_OF_POLICY", detail = "recipe is not enabled for the actor force" }
+  end
+  if character.crafting_queue_size ~= 0 then
+    return nil, { code = "ACTION_IN_PROGRESS", detail = "native crafting queue must be empty before a bridge craft action" }
+  end
+  local state = bridge_storage()
+  if state.active_action_id then
+    return nil, { code = "ACTION_IN_PROGRESS", detail = "another gameplay action is active" }
+  end
+
+  local record = receipt(character, request.action_id, "craft", "accepted", { code = "ACCEPTED", reason = "native hand-crafting is scheduled for next game tick" })
+  record.recipe = request.recipe
+  record.requested_count = request.count
+  record.started_count = 0
+  record.completed_count = 0
+  record.queue_before = crafting_queue_snapshot(character)
+  record.request_fingerprint = request_fingerprint
+  record.inventory_before = inventory_contents(character)
   state.actions_by_id[request.action_id] = record
   state.active_action_id = request.action_id
   audit.mutation(record)
@@ -382,6 +470,42 @@ function actions.tick()
       local inventory = character.get_main_inventory()
       local code = inventory and inventory.is_full() and "INVENTORY_FULL" or "BLOCKED"
       finalise(character, record, "failed", code, "ordinary mining made no measurable progress")
+      state.active_action_id = nil
+    end
+    return
+  end
+  if record.kind == "craft" then
+    if not record.craft_started then
+      -- This is the only crafting call. The native queue controls ingredients,
+      -- prerequisites, speed, timing, capacity, and output without simulation.
+      record.started_count = character.begin_crafting({ recipe = record.recipe, count = record.requested_count })
+      record.craft_started = true
+      record.queue_started = crafting_queue_snapshot(character)
+      record.last_craft_queue_fingerprint = crafting_queue_fingerprint(character)
+      record.stalled_ticks = 0
+      if record.started_count == 0 then
+        finalise(character, record, "failed", "NOT_CRAFTABLE", "native hand-crafting could not start the requested recipe")
+        state.active_action_id = nil
+      end
+      return
+    end
+    if character.crafting_queue_size == 0 then
+      record.completed_count = record.started_count
+      record.queue_after = {}
+      finalise(character, record, "succeeded", "CRAFTED", "native hand-crafting queue completed")
+      state.active_action_id = nil
+      return
+    end
+    local queue_fingerprint = crafting_queue_fingerprint(character)
+    if queue_fingerprint == record.last_craft_queue_fingerprint then
+      record.stalled_ticks = record.stalled_ticks + 1
+    else
+      record.stalled_ticks = 0
+      record.last_craft_queue_fingerprint = queue_fingerprint
+    end
+    if record.stalled_ticks >= config.MAX_STALLED_CRAFT_TICKS then
+      record.queue_after = crafting_queue_snapshot(character)
+      finalise(character, record, "failed", "BLOCKED", "native hand-crafting queue made no measurable progress")
       state.active_action_id = nil
     end
     return

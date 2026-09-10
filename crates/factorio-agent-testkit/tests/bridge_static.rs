@@ -72,7 +72,7 @@ fn protocol_has_closed_read_and_phase_one_command_dispatch() {
     ] {
         assert!(protocol.contains(capability), "protocol lacks {capability}");
     }
-    for command in ["walk_to", "stop", "mine", "get_action"] {
+    for command in ["walk_to", "stop", "mine", "craft", "get_action"] {
         assert!(protocol.contains(command), "protocol lacks {command}");
     }
     assert!(protocol.contains("unknown or future gameplay command"));
@@ -158,6 +158,11 @@ fn phase_one_actions_are_tick_driven_and_exclude_privileged_paths() {
         "STOP_REQUESTED",
         "character.mining_state = { mining = true",
         "character.mining_state = { mining = false",
+        "character.begin_crafting({ recipe = record.recipe, count = record.requested_count })",
+        "character.crafting_queue",
+        "character.crafting_queue_progress",
+        "character.cancel_crafting(",
+        "native crafting queue must be empty before a bridge craft action",
         "TARGET_DEPLETED",
         "INVENTORY_FULL",
         "for _, entry in pairs(inventory.get_contents()) do",

@@ -102,6 +102,11 @@ impl SchedulingSemantics {
     pub fn phase_one_mine() -> Self {
         Self::phase_one_walk_stop()
     }
+
+    #[must_use]
+    pub fn phase_one_craft() -> Self {
+        Self::phase_one_walk_stop()
+    }
 }
 
 /// The versioned discovery response required before a client can issue tools.
@@ -124,13 +129,13 @@ pub struct CapabilityContract {
     pub current_game_tick: u64,
 }
 
-/// The only capability manifest permitted by the Phase-1 walk/stop/mine protocol.
+/// The only capability manifest permitted by the Phase-1 walk/stop/mine/craft protocol.
 ///
 /// The tuple schema and deserialization check reject additions, omissions,
 /// reordering, and duplicates rather than merely accepting six capabilities.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
-pub struct PhaseOneCapabilities([Capability; 10]);
+pub struct PhaseOneCapabilities([Capability; 11]);
 
 impl PhaseOneCapabilities {
     #[must_use]
@@ -139,7 +144,7 @@ impl PhaseOneCapabilities {
     }
 
     #[must_use]
-    pub const fn as_array(&self) -> &[Capability; 10] {
+    pub const fn as_array(&self) -> &[Capability; 11] {
         &self.0
     }
 }
@@ -155,7 +160,7 @@ impl<'de> Deserialize<'de> for PhaseOneCapabilities {
     where
         D: Deserializer<'de>,
     {
-        let capabilities = <[Capability; 10]>::deserialize(deserializer)?;
+        let capabilities = <[Capability; 11]>::deserialize(deserializer)?;
         if capabilities != crate::capability::PHASE_ONE_CAPABILITIES {
             return Err(de::Error::custom(
                 "capabilities must be the exact Phase-1 manifest",
@@ -187,11 +192,12 @@ impl JsonSchema for PhaseOneCapabilities {
                 { "const": "walk_to" },
                 { "const": "stop" },
                 { "const": "mine" },
+                { "const": "craft" },
                 { "const": "get_action" }
             ],
             "items": false,
-            "minItems": 10,
-            "maxItems": 10
+            "minItems": 11,
+            "maxItems": 11
         })
     }
 }

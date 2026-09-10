@@ -65,7 +65,7 @@ async fn start_server(responses: Vec<String>) -> (String, Arc<Mutex<Vec<Packet>>
 }
 
 fn contract_response() -> String {
-    r#"{"ok":true,"result":{"schema_version":"0.3.0","fair_play_policy_version":"0.3.0","bridge_build":"0.3.0","factorio_build":"2.0.77","enabled_mods":[],"actor_id":"alfred","force_id":"player","profile_name":"phase-one-mine","observation_limits":{"max_radius":32,"max_result_count":128,"max_detail_fields":4,"max_payload_bytes":3072},"scheduling":{"execution":"tick_driven_character_input","observation_tick":"bridge_tick_snapshot","request_order":"one_active_action_serialized_at_next_game_tick"},"capabilities":["get_capability_contract","get_actor_status","scan_local","scan_charted","get_entity","get_action_record","walk_to","stop","mine","get_action"],"supported_provenance":["character_local"],"current_game_tick":42}}"#.to_owned()
+    r#"{"ok":true,"result":{"schema_version":"0.4.0","fair_play_policy_version":"0.4.0","bridge_build":"0.4.0","factorio_build":"2.0.77","enabled_mods":[],"actor_id":"alfred","force_id":"player","profile_name":"phase-one-craft","observation_limits":{"max_radius":32,"max_result_count":128,"max_detail_fields":4,"max_payload_bytes":3072},"scheduling":{"execution":"tick_driven_character_input","observation_tick":"bridge_tick_snapshot","request_order":"one_active_action_serialized_at_next_game_tick"},"capabilities":["get_capability_contract","get_actor_status","scan_local","scan_charted","get_entity","get_action_record","walk_to","stop","mine","craft","get_action"],"supported_provenance":["character_local"],"current_game_tick":42}}"#.to_owned()
 }
 
 fn actor_response() -> String {
@@ -141,7 +141,7 @@ async fn enum_variants_use_the_same_fixed_bridge_interface() {
 #[tokio::test]
 async fn bridge_version_mismatch_fails_closed() {
     let mismatched =
-        contract_response().replace("\"bridge_build\":\"0.3.0\"", "\"bridge_build\":\"0.3.1\"");
+        contract_response().replace("\"bridge_build\":\"0.4.0\"", "\"bridge_build\":\"0.4.1\"");
     let (address, _) = start_server(vec![mismatched]).await;
     let Err(error) = RconAdapter::connect(config(address)).await else {
         panic!("mismatched bridge must be rejected");

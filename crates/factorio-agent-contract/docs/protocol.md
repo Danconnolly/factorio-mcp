@@ -6,7 +6,7 @@ version they do not support.
 
 ## Phase-1 capability surface
 
-The Phase-1 walk/stop/mine allow-list is exact:
+The Phase-1 walk/stop/mine/craft allow-list is exact:
 
 1. `get_capability_contract`
 2. `get_actor_status`
@@ -17,11 +17,12 @@ The Phase-1 walk/stop/mine allow-list is exact:
 7. `walk_to`
 8. `stop`
 9. `mine`
-10. `get_action`
+10. `craft`
+11. `get_action`
 
-Apart from `walk_to`, `stop`, and `mine`, no gameplay mutation is available. In
-particular, no raw RCON, Lua, reset, teleport, item-grant, speed, crafting,
-placement, transfer, research, or global-inspection capability exists in this profile.
+Apart from `walk_to`, `stop`, `mine`, and `craft`, no gameplay mutation is available. In
+particular, no raw RCON, Lua, reset, teleport, item-grant, speed, placement,
+transfer, research, or global-inspection capability exists in this profile.
 Additions require a new fair-play policy version.
 
 ## Contract fields and provenance

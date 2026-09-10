@@ -1,6 +1,6 @@
 //! Versioned, transport-independent contracts for Factorio Fair-Play MCP.
 //!
-//! Phase 1 adds deliberately small tick-driven walking and mining primitives to
+//! Phase 1 adds deliberately small tick-driven walking, mining, and crafting primitives to
 //! the read-only actor and bounded-observation foundation.
 
 #![forbid(unsafe_code)]
@@ -28,4 +28,4 @@ pub use schema::{
 };
 
 /// Contract schema version implemented by this build.
-pub const SCHEMA_VERSION: &str = "0.3.0";
+pub const SCHEMA_VERSION: &str = "0.4.0";
