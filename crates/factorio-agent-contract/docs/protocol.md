@@ -1,12 +1,12 @@
 # Factorio Agent Bridge Contract Protocol
 
 `factorio-agent-contract` is transport-independent. A bridge or MCP transport must first
-return a `CapabilityContract` with `schema_version = "0.2.0"`; clients must reject a
+return a `CapabilityContract` with `schema_version = "0.3.0"`; clients must reject a
 version they do not support.
 
 ## Phase-1 capability surface
 
-The Phase-1 walk/stop allow-list is exact:
+The Phase-1 walk/stop/mine allow-list is exact:
 
 1. `get_capability_contract`
 2. `get_actor_status`
@@ -16,11 +16,12 @@ The Phase-1 walk/stop allow-list is exact:
 6. `get_action_record`
 7. `walk_to`
 8. `stop`
-9. `get_action`
+9. `mine`
+10. `get_action`
 
-Apart from `walk_to` and `stop`, no gameplay mutation is available. In particular,
-no raw RCON, Lua, reset, teleport, item-grant, speed, mining, crafting, placement,
-transfer, research, or global-inspection capability exists in this profile.
+Apart from `walk_to`, `stop`, and `mine`, no gameplay mutation is available. In
+particular, no raw RCON, Lua, reset, teleport, item-grant, speed, crafting,
+placement, transfer, research, or global-inspection capability exists in this profile.
 Additions require a new fair-play policy version.
 
 ## Contract fields and provenance
@@ -75,7 +76,7 @@ people: `INVALID_ARGUMENT`, `ACTOR_UNAVAILABLE`, `OUT_OF_POLICY`, `UNCHARTED`,
 ## Audit chain and action receipts
 
 `AuditRecord` has `lifecycle`, `observation`, and durable action-receipt variants.
-Every `walk_to` and `stop` request is retained by caller-supplied action ID before it
+Every `walk_to`, `stop`, and `mine` request is retained by caller-supplied action ID before it
 is acknowledged. A receipt includes the actor/action IDs, action sequence, request
 fingerprint, policy and build context, lifecycle state/result, relevant ticks,
 positions and health, explicit inventory delta, and affected entity IDs.

@@ -111,6 +111,9 @@ function policy.entity_record(entity, provenance)
   if entity.health then
     detail[#detail + 1] = { name = "health", value = entity.health }
   end
+  if entity.type == "resource" then
+    detail[#detail + 1] = { name = "amount", value = entity.amount or 0 }
+  end
   if entity.direction then
     detail[#detail + 1] = { name = "direction", value = entity.direction }
   end

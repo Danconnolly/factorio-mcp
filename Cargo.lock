@@ -171,7 +171,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-agent-contract"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "schemars",
  "serde",
@@ -182,7 +182,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-agent-mcp"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "factorio-agent-contract",
  "factorio-agent-rcon",
@@ -197,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-agent-rcon"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "factorio-agent-contract",
  "factorio-rcon",
@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-agent-testkit"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "factorio-rcon"

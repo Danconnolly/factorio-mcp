@@ -25,6 +25,13 @@ record](docs/phase-1-walk-stop-completion.md). Only this primitive has been
 promoted; no gameplay controller should be attached to a valued save at this
 stage.
 
+Phase 1 / mine complete: the tick-driven, inventory-conserving `mine` action
+passed its copied-save zero-client fixture and final manual real-player
+differential, including the Factorio 2.x quality-aware inventory path. See the
+[Phase-1 mine completion record](docs/phase-1-mine-completion.md). Only
+walk/stop and mine are promoted; no gameplay controller should be attached to a
+valued save at this stage.
+
 ## Design constraints
 
 - One configured, persistent MCP actor; it must never implicitly select or alter
@@ -59,6 +66,8 @@ stage.
   the completed read-only feasibility gate and Phase-1 promotion boundary.
 - [Phase-1 walk/stop completion record](docs/phase-1-walk-stop-completion.md)
   — retained, sanitized evidence for the P1-04 movement promotion gate.
+- [Phase-1 mine completion record](docs/phase-1-mine-completion.md)
+  — retained, sanitized evidence for the mining promotion gate.
 - [Optional Kubernetes fixture](docs/kubernetes-fixture.md) — opt-in,
   default-scheduled disposable-server provider for the ignored integration
   checks; it is not required for unit tests.

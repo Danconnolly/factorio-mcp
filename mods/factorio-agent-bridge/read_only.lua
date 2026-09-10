@@ -10,10 +10,10 @@ local function inventory_summary(character)
   local total = 0
   local truncated = false
   if inventory then
-    for name, count in pairs(inventory.get_contents()) do
-      total = total + count
+    for _, entry in pairs(inventory.get_contents()) do
+      total = total + entry.count
       if #items < config.MAX_INVENTORY_TYPES then
-        items[#items + 1] = { name = name, count = count }
+        items[#items + 1] = { name = entry.name, count = entry.count }
       else
         truncated = true
       end
@@ -101,7 +101,7 @@ function read_only.capability_contract(character)
     enabled_mods = enabled_mods(),
     actor_id = status.actor_id,
     force_id = status.force.name,
-    profile_name = "phase-one-walk-stop",
+    profile_name = "phase-one-mine",
     scheduling = {
       execution = "tick_driven_character_input",
       observation_tick = "bridge_tick_snapshot",
@@ -115,7 +115,7 @@ function read_only.capability_contract(character)
     },
     supported_provenance = { "character_local", "force_charted", "permitted_direct_interaction", "force_statistics" },
     current_game_tick = status.tick,
-    capabilities = { "get_capability_contract", "get_actor_status", "scan_local", "scan_charted", "get_entity", "get_action_record", "walk_to", "stop", "get_action" },
+    capabilities = { "get_capability_contract", "get_actor_status", "scan_local", "scan_charted", "get_entity", "get_action_record", "walk_to", "stop", "mine", "get_action" },
   }
 end
 

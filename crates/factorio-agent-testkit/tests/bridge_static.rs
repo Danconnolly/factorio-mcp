@@ -72,7 +72,7 @@ fn protocol_has_closed_read_and_phase_one_command_dispatch() {
     ] {
         assert!(protocol.contains(capability), "protocol lacks {capability}");
     }
-    for command in ["walk_to", "stop", "get_action"] {
+    for command in ["walk_to", "stop", "mine", "get_action"] {
         assert!(protocol.contains(command), "protocol lacks {command}");
     }
     assert!(protocol.contains("unknown or future gameplay command"));
@@ -131,6 +131,7 @@ fn lifecycle_hooks_revalidate_the_stored_actor_and_status_has_no_gameplay_writes
 #[test]
 fn phase_one_actions_are_tick_driven_and_exclude_privileged_paths() {
     let actions = production_lua("actions.lua");
+    let read_only = production_lua("read_only.lua");
     for forbidden in [
         "teleport",
         "create_entity",
@@ -155,12 +156,23 @@ fn phase_one_actions_are_tick_driven_and_exclude_privileged_paths() {
         "TARGET_REACHED",
         "BLOCKED",
         "STOP_REQUESTED",
+        "character.mining_state = { mining = true",
+        "character.mining_state = { mining = false",
+        "TARGET_DEPLETED",
+        "INVENTORY_FULL",
+        "for _, entry in pairs(inventory.get_contents()) do",
+        "local quality = entry.quality or \"normal\"",
+        "delta[#delta + 1] = { name = name, quality = quality, count = difference }",
     ] {
         assert!(
             actions.contains(required),
             "missing Phase-1 action guard: {required}"
         );
     }
+    assert!(
+        read_only.contains("for _, entry in pairs(inventory.get_contents()) do"),
+        "inventory status must handle Factorio 2.x item-with-quality records"
+    );
 }
 
 #[test]

@@ -15,7 +15,7 @@ fn contract_with_fixed_limits() -> CapabilityContract {
         force_id: ForceId::new("player"),
         profile_name: ProfileName::new("phase-zero-read-only"),
         observation_limits: ObservationLimits::new(32, 128, 4, 3 * 1024),
-        scheduling: SchedulingSemantics::phase_one_walk_stop(),
+        scheduling: SchedulingSemantics::phase_one_mine(),
         capabilities: PhaseOneCapabilities::exact(),
         supported_provenance: vec![Provenance::CharacterLocal, Provenance::ForceCharted],
         current_game_tick: 1,
@@ -53,6 +53,7 @@ fn phase_one_capabilities_preserve_observation_provenance() {
             "get_action_record",
             "walk_to",
             "stop",
+            "mine",
             "get_action",
         ]
     );
