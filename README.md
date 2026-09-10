@@ -38,12 +38,19 @@ therefore fail-closed and not promoted; the fair-play route for it is a
 permanently connected dedicated Factorio client. See the [Phase-1 craft
 feasibility record](docs/phase-1-craft-feasibility.md).
 
+That finding invalidates the original all-headless route to a complete
+controller. The refreshed open-source assessment identifies FactoMCP as a
+possible *fork base* for a strict, connected-player bridge, but no existing
+project is safe to adopt unchanged; see the [connected-player
+re-evaluation](docs/open-source-re-evaluation.md).
+
 ## Design constraints
 
 - One configured, persistent MCP actor; it must never implicitly select or alter
   a human player.
-- Headless operation: the actor must remain usable with zero connected human
-  clients and survive MCP reconnects, game restarts and save reloads.
+- Connected-player operation: the MCP actor is a separately configured,
+  permanently connected dedicated Factorio client. It must survive MCP
+  reconnects, game restarts and save reloads without selecting a human player.
 - No gameplay teleportation, raw Lua/RCON execution, item grants, instant
   mining/crafting/pickup, free placement, research manipulation, reset, speed
   control or unbounded map reveal.
@@ -64,6 +71,8 @@ feasibility record](docs/phase-1-craft-feasibility.md).
   acceptance criteria.
 - [Open-source scan](docs/open-source-scan.md) — assessment of existing
   Factorio/MCP projects against the requirements.
+- [Connected-player re-evaluation](docs/open-source-re-evaluation.md) —
+  post-craft-gate candidate ranking and strict-fork acceptance plan.
 - [Implementation plan](docs/implementation-plan.md) — phased delivery plan,
   including the initial feasibility gate and release verification suite.
 - [Phase-0 differential procedure](docs/phase-0-differential-procedure.md) —
