@@ -23,6 +23,7 @@ pub enum BridgeCommand {
     GetActionRecord { sequence: u64 },
     WalkTo { action_id: String, target: Position },
     Stop { action_id: String },
+    Mine { action_id: String, target: Position },
     GetAction { action_id: String },
 }
 
@@ -136,6 +137,16 @@ impl BridgeCommand {
                 action_id: Some(action_id),
                 target: None,
             },
+            Self::Mine { action_id, target } => QueryRequest {
+                name: "mine",
+                radius: None,
+                center: None,
+                entity_id: None,
+                position: None,
+                sequence: None,
+                action_id: Some(action_id),
+                target: Some(*target),
+            },
             Self::GetAction { action_id } => QueryRequest {
                 name: "get_action",
                 radius: None,
@@ -169,12 +180,18 @@ impl BridgeCommand {
     }
 
     pub(crate) const fn is_mutation(&self) -> bool {
-        matches!(self, Self::WalkTo { .. } | Self::Stop { .. })
+        matches!(
+            self,
+            Self::WalkTo { .. } | Self::Stop { .. } | Self::Mine { .. }
+        )
     }
 
     const fn remote_method(&self) -> &'static str {
         match self {
-            Self::WalkTo { .. } | Self::Stop { .. } | Self::GetAction { .. } => COMMAND_METHOD,
+            Self::WalkTo { .. }
+            | Self::Stop { .. }
+            | Self::Mine { .. }
+            | Self::GetAction { .. } => COMMAND_METHOD,
             _ => QUERY_METHOD,
         }
     }

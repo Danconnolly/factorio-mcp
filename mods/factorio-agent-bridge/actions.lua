@@ -28,6 +28,47 @@ local function snapshot(character)
   }
 end
 
+local function inventory_contents(character)
+  local inventory = character.get_main_inventory()
+  local contents = {}
+  if not inventory then return contents end
+  -- Factorio 2.x returns an array of { name, quality, count } records rather
+  -- than the pre-2.0 name-to-count map. Preserve quality internally so a
+  -- mining receipt can neither conflate nor lose item variants.
+  for _, entry in pairs(inventory.get_contents()) do
+    local quality = entry.quality or "normal"
+    contents[entry.name] = contents[entry.name] or {}
+    contents[entry.name][quality] = entry.count
+  end
+  return contents
+end
+
+local function inventory_delta(before, character)
+  local after = inventory_contents(character)
+  local delta = {}
+  for name, qualities in pairs(before) do
+    for quality, count in pairs(qualities) do
+      local after_count = (after[name] and after[name][quality]) or 0
+      local difference = after_count - count
+      if difference ~= 0 then
+        delta[#delta + 1] = { name = name, quality = quality, count = difference }
+      end
+    end
+  end
+  for name, qualities in pairs(after) do
+    for quality, count in pairs(qualities) do
+      local before_count = (before[name] and before[name][quality]) or 0
+      if before_count == 0 then
+        delta[#delta + 1] = { name = name, quality = quality, count = count }
+      end
+    end
+  end
+  table.sort(delta, function(left, right)
+    return left.name == right.name and left.quality < right.quality or left.name < right.name
+  end)
+  return delta
+end
+
 local function context(character)
   local state = bridge_storage()
   return {
@@ -39,7 +80,7 @@ local function context(character)
     actor_unit_number = state.actor.unit_number,
     force_id = character.force.name,
     surface = { index = character.surface.index, name = character.surface.name },
-    profile_name = "phase-one-walk-stop",
+    profile_name = "phase-one-mine",
   }
 end
 
@@ -74,6 +115,7 @@ local function finalise(character, record, state, code, reason)
   record.end_tick = game.tick
   record.end_position = current.position
   record.end_health = current.health
+  record.inventory_delta = inventory_delta(record.inventory_before or {}, character)
   audit.mutation(record)
 end
 
@@ -112,6 +154,41 @@ local function existing_or_conflict(action_id, request_fingerprint)
     return false, { code = "ACTION_ID_CONFLICT", detail = "action_id was already used for another request" }
   end
   return record
+end
+
+local function target_descriptor(entity)
+  return {
+    name = entity.name,
+    type = entity.type,
+    unit_number = entity.unit_number,
+    position = { x = entity.position.x, y = entity.position.y },
+  }
+end
+
+local function resolve_mine_target(character, target)
+  if squared_distance(character.position, target) > character.resource_reach_distance * character.resource_reach_distance then
+    return nil, { code = "OUT_OF_POLICY", detail = "target exceeds the actor resource reach distance" }
+  end
+  character.update_selected_entity(target)
+  local entity = character.selected
+  if not (entity and entity.valid) then
+    return nil, { code = "NOT_FOUND", detail = "no mineable entity exists at the target position" }
+  end
+  if squared_distance(entity.position, target) > config.MINE_TARGET_TOLERANCE * config.MINE_TARGET_TOLERANCE then
+    return nil, { code = "NOT_FOUND", detail = "selected entity does not match the requested target position" }
+  end
+  if not entity.minable then
+    return nil, { code = "OUT_OF_POLICY", detail = "target is not currently mineable" }
+  end
+  return entity
+end
+
+local function clear_character_input(character, record)
+  if record.kind == "walk_to" then
+    character.walking_state = { walking = false, direction = record.last_direction or defines.direction.north }
+  elseif record.kind == "mine" then
+    character.mining_state = { mining = false }
+  end
 end
 
 local function direction_toward(from, target)
@@ -164,6 +241,7 @@ function actions.walk_to(request)
   record.request_fingerprint = request_fingerprint
   record.last_position = record.start_position
   record.stalled_ticks = 0
+  record.inventory_before = inventory_contents(character)
   state.actions_by_id[request.action_id] = record
   state.active_action_id = request.action_id
   audit.mutation(record)
@@ -188,14 +266,48 @@ function actions.stop(request)
   stop_record.request_fingerprint = request_fingerprint
   if state.active_action_id then
     local active = state.actions_by_id[state.active_action_id]
-    character.walking_state = { walking = false, direction = active.last_direction or defines.direction.north }
+    clear_character_input(character, active)
     finalise(character, active, "cancelled", "STOP_REQUESTED", "cancelled by a serialized stop request")
     state.active_action_id = nil
-    stop_record.result = { code = "STOPPED", reason = "active walk input was cleared" }
+    stop_record.result = { code = "STOPPED", reason = "active gameplay input was cleared" }
   end
   state.actions_by_id[request.action_id] = stop_record
   audit.mutation(stop_record)
   return stop_record
+end
+
+function actions.mine(request)
+  if type(request) ~= "table" or not action_id_is_valid(request.action_id) or not target_is_valid(request.target) then
+    return nil, { code = "INVALID_ARGUMENT", detail = "mine requires a valid action_id and finite target" }
+  end
+  local request_fingerprint = fingerprint("mine", request.target)
+  local existing, conflict = existing_or_conflict(request.action_id, request_fingerprint)
+  if existing then return existing end
+  if conflict then return nil, conflict end
+
+  local character, lifecycle_state = actor.resolve_stored()
+  if not character then
+    return nil, { code = "ACTOR_UNAVAILABLE", detail = lifecycle_state }
+  end
+  local target, target_error = resolve_mine_target(character, request.target)
+  if not target then return nil, target_error end
+  local state = bridge_storage()
+  if state.active_action_id then
+    return nil, { code = "ACTION_IN_PROGRESS", detail = "another gameplay action is active" }
+  end
+
+  local record = receipt(character, request.action_id, "mine", "accepted", { code = "ACCEPTED", reason = "scheduled for next game tick" })
+  record.target = { x = request.target.x, y = request.target.y }
+  record.target_entity = target_descriptor(target)
+  record.target_amount_before = target.type == "resource" and target.amount or nil
+  record.request_fingerprint = request_fingerprint
+  record.inventory_before = inventory_contents(character)
+  record.last_mining_progress = 0
+  record.stalled_ticks = 0
+  state.actions_by_id[request.action_id] = record
+  state.active_action_id = request.action_id
+  audit.mutation(record)
+  return record
 end
 
 function actions.get_action(request)
@@ -231,10 +343,48 @@ function actions.tick()
   if record.state == "accepted" then
     local current = snapshot(character)
     record.state = "running"
-    record.result = { code = "RUNNING", reason = "ordinary walking input is applied every game tick" }
+    record.result = { code = "RUNNING", reason = "ordinary character input is applied every game tick" }
     record.start_tick = game.tick
     record.start_position = current.position
     record.start_health = current.health
+  end
+  if record.kind == "mine" then
+    local target, target_error = resolve_mine_target(character, record.target)
+    if not target then
+      clear_character_input(character, record)
+      local delta = inventory_delta(record.inventory_before, character)
+      if next(delta) then
+        finalise(character, record, "succeeded", "TARGET_DEPLETED", "target became unavailable after ordinary mining output")
+      else
+        finalise(character, record, "failed", target_error.code, target_error.detail)
+      end
+      state.active_action_id = nil
+      return
+    end
+    character.mining_state = { mining = true, position = record.target }
+    local delta = inventory_delta(record.inventory_before, character)
+    if next(delta) then
+      clear_character_input(character, record)
+      record.target_amount_after = target.type == "resource" and target.amount or nil
+      finalise(character, record, "succeeded", "MINED", "ordinary character mining produced one inventory delta")
+      state.active_action_id = nil
+      return
+    end
+    local progress = character.character_mining_progress
+    if progress <= record.last_mining_progress then
+      record.stalled_ticks = record.stalled_ticks + 1
+    else
+      record.stalled_ticks = 0
+      record.last_mining_progress = progress
+    end
+    if record.stalled_ticks >= config.MAX_STALLED_MINE_TICKS then
+      clear_character_input(character, record)
+      local inventory = character.get_main_inventory()
+      local code = inventory and inventory.is_full() and "INVENTORY_FULL" or "BLOCKED"
+      finalise(character, record, "failed", code, "ordinary mining made no measurable progress")
+      state.active_action_id = nil
+    end
+    return
   end
   if squared_distance(character.position, record.target) <= config.WALK_TARGET_TOLERANCE * config.WALK_TARGET_TOLERANCE then
     character.walking_state = { walking = false, direction = record.last_direction or defines.direction.north }

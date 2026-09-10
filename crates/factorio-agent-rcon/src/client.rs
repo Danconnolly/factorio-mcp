@@ -137,6 +137,7 @@ fn decode_response(command: &BridgeCommand, payload: &str) -> Result<BridgeRespo
         }
         BridgeCommand::WalkTo { .. }
         | BridgeCommand::Stop { .. }
+        | BridgeCommand::Mine { .. }
         | BridgeCommand::GetAction { .. } => decode_action(payload).map(BridgeResponse::Action),
     }
 }

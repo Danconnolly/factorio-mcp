@@ -20,7 +20,7 @@ fn contract() -> CapabilityContract {
         force_id: ForceId::new("force:player"),
         profile_name: ProfileName::new("phase-zero"),
         observation_limits: ObservationLimits::new(32, 128, 4, 3 * 1024),
-        scheduling: SchedulingSemantics::phase_one_walk_stop(),
+        scheduling: SchedulingSemantics::phase_one_mine(),
         capabilities: PhaseOneCapabilities::exact(),
         supported_provenance: vec![
             Provenance::CharacterLocal,
@@ -49,6 +49,7 @@ fn phase_one_capability_allow_list_is_exact_and_excludes_prohibited_mutation() {
             "get_action_record",
             "walk_to",
             "stop",
+            "mine",
             "get_action",
         ]
     );
@@ -281,6 +282,7 @@ fn contract_manifest_is_schema_and_deserialization_exact() {
             "get_action_record",
             "walk_to",
             "stop",
+            "mine",
             "get_action"
         ])
     );

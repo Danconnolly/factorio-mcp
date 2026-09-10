@@ -413,6 +413,35 @@ impl PhaseZeroServer {
     }
 
     #[tool(
+        name = "mine",
+        description = "Start ordinary tick-driven mining of one reachable target for the bridge-owned character.",
+        annotations(destructive_hint = false, idempotent_hint = true)
+    )]
+    async fn mine(&self, Parameters(input): Parameters<MineInput>) -> CallToolResult {
+        if let Err(error) =
+            validate_action_id(&input.action_id).and_then(|()| validate_position(input.target))
+        {
+            return error_result(error);
+        }
+        match self
+            .call(BridgeCommand::Mine {
+                action_id: input.action_id,
+                target: input.target,
+            })
+            .await
+        {
+            Ok(BridgeResponse::Action(receipt)) => self.audited_result(
+                &receipt,
+                AuditRecord::Mutation {
+                    receipt: receipt.clone(),
+                },
+            ),
+            Ok(_) => error_result(internal_mismatch()),
+            Err(error) => error_result(error),
+        }
+    }
+
+    #[tool(
         name = "get_action",
         description = "Read a durable bridge-owned action state or terminal receipt by action ID.",
         annotations(read_only_hint = true)
@@ -517,6 +546,13 @@ struct ActionInput {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct WalkToInput {
+    action_id: String,
+    target: Position,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct MineInput {
     action_id: String,
     target: Position,
 }
@@ -712,6 +748,7 @@ mod tests {
                 "get_actor_status",
                 "get_capability_contract",
                 "get_entity",
+                "mine",
                 "scan_charted",
                 "scan_local",
                 "stop",

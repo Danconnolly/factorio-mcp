@@ -17,6 +17,7 @@ local ALLOWED_REQUESTS = {
 local ALLOWED_COMMANDS = {
   walk_to = true,
   stop = true,
+  mine = true,
   get_action = true,
 }
 
@@ -52,6 +53,10 @@ end
 
 local function command_is_valid(request)
   if request.name == "walk_to" then
+    return only_fields(request, { name = true, action_id = true, target = true })
+      and request.action_id ~= nil and request.target ~= nil
+  end
+  if request.name == "mine" then
     return only_fields(request, { name = true, action_id = true, target = true })
       and request.action_id ~= nil and request.target ~= nil
   end

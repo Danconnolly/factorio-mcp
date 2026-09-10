@@ -97,6 +97,11 @@ impl SchedulingSemantics {
             request_order: "one_active_action_serialized_at_next_game_tick".to_owned(),
         }
     }
+
+    #[must_use]
+    pub fn phase_one_mine() -> Self {
+        Self::phase_one_walk_stop()
+    }
 }
 
 /// The versioned discovery response required before a client can issue tools.
@@ -119,13 +124,13 @@ pub struct CapabilityContract {
     pub current_game_tick: u64,
 }
 
-/// The only capability manifest permitted by the Phase-1 walk/stop protocol.
+/// The only capability manifest permitted by the Phase-1 walk/stop/mine protocol.
 ///
 /// The tuple schema and deserialization check reject additions, omissions,
 /// reordering, and duplicates rather than merely accepting six capabilities.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
-pub struct PhaseOneCapabilities([Capability; 9]);
+pub struct PhaseOneCapabilities([Capability; 10]);
 
 impl PhaseOneCapabilities {
     #[must_use]
@@ -134,7 +139,7 @@ impl PhaseOneCapabilities {
     }
 
     #[must_use]
-    pub const fn as_array(&self) -> &[Capability; 9] {
+    pub const fn as_array(&self) -> &[Capability; 10] {
         &self.0
     }
 }
@@ -150,7 +155,7 @@ impl<'de> Deserialize<'de> for PhaseOneCapabilities {
     where
         D: Deserializer<'de>,
     {
-        let capabilities = <[Capability; 9]>::deserialize(deserializer)?;
+        let capabilities = <[Capability; 10]>::deserialize(deserializer)?;
         if capabilities != crate::capability::PHASE_ONE_CAPABILITIES {
             return Err(de::Error::custom(
                 "capabilities must be the exact Phase-1 manifest",
@@ -181,11 +186,12 @@ impl JsonSchema for PhaseOneCapabilities {
                 { "const": "get_action_record" },
                 { "const": "walk_to" },
                 { "const": "stop" },
+                { "const": "mine" },
                 { "const": "get_action" }
             ],
             "items": false,
-            "minItems": 9,
-            "maxItems": 9
+            "minItems": 10,
+            "maxItems": 10
         })
     }
 }

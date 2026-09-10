@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -25,7 +26,10 @@ from typing import Any, NoReturn
 ROOT = Path(__file__).resolve().parent.parent
 MOD_ROOT = ROOT / "mods" / "factorio-agent-bridge"
 IMAGE = os.environ.get("FACTORIO_FIXTURE_IMAGE", "factoriotools/factorio:2.1.17")
-TIMEOUT_SECONDS = int(os.environ.get("FACTORIO_FIXTURE_TIMEOUT_SECONDS", "180"))
+TIMEOUT_SECONDS = int(os.environ.get("FACTORIO_FIXTURE_TIMEOUT_SECONDS", "240"))
+# The bundled RCON client opens one private connection per command. Keep polling
+# below the server's login-rate guard while allowing a zero-client game to tick.
+ACTION_POLL_SECONDS = 0.75
 
 
 def fail(message: str) -> "NoReturn":
@@ -62,7 +66,7 @@ def package_bridge(target: Path) -> None:
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(MOD_ROOT.rglob("*")):
             if path.is_file():
-                archive.write(path, f"factorio-agent-bridge_0.2.0/{path.relative_to(MOD_ROOT).as_posix()}")
+                archive.write(path, f"factorio-agent-bridge_0.3.0/{path.relative_to(MOD_ROOT).as_posix()}")
 
 
 def sha256(path: Path) -> str:
@@ -71,6 +75,41 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def write_fixture_server_settings(path: Path) -> None:
+    """Keep the zero-client fixture simulating without an attached human."""
+    settings = {
+        "name": "Factorio Agent Bridge disposable fixture",
+        "description": "",
+        "tags": [],
+        "max_players": 0,
+        "visibility": {"public": False, "lan": False},
+        "username": "",
+        "password": "",
+        "token": "",
+        "game_password": "",
+        "require_user_verification": False,
+        "max_upload_in_kilobytes_per_second": 0,
+        "max_upload_slots": 5,
+        "minimum_latency_in_ticks": 0,
+        "max_heartbeats_per_second": 60,
+        "ignore_player_limit_for_returning_players": False,
+        "allow_commands": "admins-only",
+        "autosave_interval": 10,
+        "autosave_slots": 5,
+        "afk_autokick_interval": 0,
+        "auto_pause": False,
+        "auto_pause_when_players_connect": False,
+        "only_admins_can_pause_the_game": True,
+        "autosave_only_on_server": True,
+        "non_blocking_saving": False,
+        "minimum_segment_size": 25,
+        "minimum_segment_size_peer_count": 20,
+        "maximum_segment_size": 100,
+        "maximum_segment_size_peer_count": 10,
+    }
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
 def manifest(namespace: str) -> str:
@@ -133,7 +172,7 @@ def server_manifest(namespace: str) -> str:
                                 "initContainers": [{
                                     "name": "install-fixture-inputs",
                                     "image": "busybox:1.37.0",
-                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.2.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
+                                    "command": ["sh", "-ec", "set -eu; mkdir -p /factorio/config /factorio/mods /factorio/saves; cp /source/bridge.zip /factorio/mods/factorio-agent-bridge_0.3.0.zip; cp /source/mod-list.json /factorio/mods/mod-list.json; cp /source/server-settings.json /factorio/config/server-settings.json; cp /secret/rconpw /factorio/config/rconpw; chmod 600 /factorio/config/rconpw"],
                                     "volumeMounts": [{"name": "data", "mountPath": "/factorio"}, {"name": "bridge", "mountPath": "/source", "readOnly": True}, {"name": "rcon", "mountPath": "/secret", "readOnly": True}],
                                 }],
                                 "containers": [{
@@ -167,6 +206,7 @@ def fixed_query(namespace: str, pod: str, request: str) -> dict[str, Any]:
         "contract": '{name="get_capability_contract"}',
         "status": '{name="get_actor_status"}',
         "local": '{name="scan_local",radius=1}',
+
         "maximum": '{name="scan_local",radius=32}',
         "over_limit": '{name="scan_local",radius=33}',
         "uncharted": '{name="scan_charted",center={x=1000000,y=1000000},radius=0}',
@@ -205,6 +245,28 @@ def fixed_action(namespace: str, pod: str, action: str, *, target: dict[str, flo
         request = '{name="get_action",action_id="fixture-walk-success"}'
     elif action == "get_stop":
         request = '{name="get_action",action_id="fixture-walk-stop"}'
+    elif action == "mine_approach_one":
+        request = '{name="walk_to",action_id="fixture-mine-approach-one",target={x=-24,y=-24}}'
+    elif action == "get_mine_approach_one":
+        request = '{name="get_action",action_id="fixture-mine-approach-one"}'
+    elif action == "mine_approach_two":
+        request = '{name="walk_to",action_id="fixture-mine-approach-two",target={x=-44,y=-46}}'
+    elif action == "get_mine_approach_two":
+        request = '{name="get_action",action_id="fixture-mine-approach-two"}'
+    elif action == "mine_out_of_reach":
+        request = '{name="mine",action_id="fixture-mine-out-of-reach",target={x=-46.5,y=-44.5}}'
+    elif action == "mine":
+        request = '{name="mine",action_id="fixture-mine",target={x=-45.5,y=-45.5}}'
+    elif action == "get_mine":
+        request = '{name="get_action",action_id="fixture-mine"}'
+    elif action == "mine_conflict":
+        request = '{name="mine",action_id="fixture-mine",target={x=-45.5,y=-44.5}}'
+    elif action == "mine_cancel":
+        request = '{name="mine",action_id="fixture-mine-cancel",target={x=-45.5,y=-44.5}}'
+    elif action == "get_mine_cancel":
+        request = '{name="get_action",action_id="fixture-mine-cancel"}'
+    elif action == "mine_stop":
+        request = '{name="stop",action_id="fixture-mine-stop"}'
     else:
         fail(f"unknown fixed fixture action: {action}")
     lua = f'/c rcon.print(helpers.table_to_json(remote.call("factorio_agent_bridge","command",{request})))'
@@ -227,7 +289,12 @@ def collect_logs(namespace: str, pod: str, report: Path) -> None:
     report.mkdir(parents=True, exist_ok=True)
     for label, args in {"factorio.log": ["logs", pod, "-c", "factorio"], "pod.json": ["get", "pod", pod, "-o", "json"]}.items():
         try:
-            (report / label).write_text(kubectl(namespace, *args), encoding="utf-8")
+            content = kubectl(namespace, *args)
+            # The stock container entrypoint echoes its RCON invocation. Fixture
+            # evidence must never retain its randomly generated secret.
+            if label == "factorio.log":
+                content = re.sub(r"(--rcon-password\s+)(\S+)", r"\1<redacted>", content)
+            (report / label).write_text(content, encoding="utf-8")
         except RuntimeError as error:
             (report / f"{label}.error").write_text(str(error), encoding="utf-8")
 
@@ -237,6 +304,7 @@ def run_lifecycle(namespace: str, pod: str, report: dict[str, Any]) -> None:
     report["initial_status"] = before
     kubectl(namespace, "delete", "pod", pod, "--wait=true", f"--timeout={TIMEOUT_SECONDS}s")
     restarted = wait_for_pod(namespace)
+
     after = assert_ok(fixed_query(namespace, restarted, "status"), "restarted actor status")
     report["restarted_status"] = after
     if before["actor_id"] != after["actor_id"] or before["unit_number"] != after["unit_number"]:
@@ -272,7 +340,7 @@ def wait_for_action(namespace: str, pod: str, action: str) -> dict[str, Any]:
         result = assert_ok(fixed_action(namespace, pod, action), action)
         if result.get("state") in {"succeeded", "failed", "cancelled", "rejected"}:
             return result
-        time.sleep(1)
+        time.sleep(ACTION_POLL_SECONDS)
     fail(f"Phase-1 action {action} did not reach a terminal state")
     raise AssertionError("unreachable")
 
@@ -301,6 +369,73 @@ def run_walk_stop(namespace: str, pod: str, report: dict[str, Any]) -> None:
         fail(f"stop did not cancel the active walk: {cancelled}")
 
 
+def run_mine(namespace: str, pod: str, report: dict[str, Any]) -> str:
+    """Exercise a fixed, copied-save mining route without arbitrary RCON input."""
+    initial = assert_ok(fixed_query(namespace, pod, "status"), "mining initial status")
+    report["initial_status"] = initial
+
+    # These are fixed fixture-only action IDs and targets for the retained seed
+    # save's iron patch; callers cannot select arbitrary locations or Lua.
+    route = (
+        ("mine_approach_one", "get_mine_approach_one"),
+        ("mine_approach_two", "get_mine_approach_two"),
+    )
+    report["mine_approach"] = []
+    for action, get_action in route:
+        accepted_result = assert_ok(fixed_action(namespace, pod, action), f"{action} acceptance")
+        if accepted_result.get("state") != "accepted":
+            fail(f"{action} was not accepted: {accepted_result}")
+        result = wait_for_action(namespace, pod, get_action)
+        if result.get("state") != "succeeded" or result.get("result", {}).get("code") != "TARGET_REACHED":
+            fail(f"{action} did not reach its fixed target: {result}")
+        report["mine_approach"].append(result)
+
+    out_of_reach = fixed_action(namespace, pod, "mine_out_of_reach")
+    if out_of_reach.get("ok") is not False or out_of_reach.get("error", {}).get("code") != "OUT_OF_POLICY":
+        fail("out-of-reach mine request was not rejected")
+
+    accepted = assert_ok(fixed_action(namespace, pod, "mine"), "mine acceptance")
+    if accepted.get("state") != "accepted":
+        fail(f"mine was not accepted: {accepted}")
+    mined = wait_for_action(namespace, pod, "get_mine")
+    if mined.get("state") != "succeeded" or mined.get("result", {}).get("code") != "MINED":
+        fail(f"mine did not complete through ordinary character input: {mined}")
+    if mined.get("end_tick", 0) <= mined.get("start_tick", 0):
+        fail("mining receipt does not demonstrate elapsed game ticks")
+    if mined.get("inventory_delta") != [{"name": "iron-ore", "quality": "normal", "count": 1}]:
+        fail(f"mine receipt did not conserve exactly one iron ore: {mined}")
+    before_amount = mined.get("target_amount_before")
+    after_amount = mined.get("target_amount_after")
+    if not isinstance(before_amount, int) or after_amount != before_amount - 1:
+        fail(f"mine receipt did not prove one-unit target depletion: {before_amount} -> {after_amount}")
+
+    retry = assert_ok(fixed_action(namespace, pod, "mine"), "idempotent mine retry")
+    if retry != mined:
+        fail("identical mine retry did not return the original completed receipt")
+    conflict = fixed_action(namespace, pod, "mine_conflict")
+    if conflict.get("ok") is not False or conflict.get("error", {}).get("code") != "ACTION_ID_CONFLICT":
+        fail("conflicting mine action ID was not rejected")
+
+
+    assert_ok(fixed_action(namespace, pod, "mine_cancel"), "mine cancellation acceptance")
+    stopped = assert_ok(fixed_action(namespace, pod, "mine_stop"), "mine stop receipt")
+    cancelled = wait_for_action(namespace, pod, "get_mine_cancel")
+    if stopped.get("result", {}).get("code") != "STOPPED" or cancelled.get("state") != "cancelled" or cancelled.get("result", {}).get("code") != "STOP_REQUESTED":
+        fail(f"stop did not cancel active mining: stop={stopped}, mine={cancelled}")
+
+    report["mine"] = {
+        "out_of_reach": out_of_reach,
+        "before_amount": before_amount,
+        "receipt": mined,
+        "retry": retry,
+        "conflict": conflict,
+        "after_amount": after_amount,
+        "stop": stopped,
+        "cancelled": cancelled,
+    }
+    return pod
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--save", required=True, type=Path, help="copied disposable Factorio save")
@@ -309,6 +444,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assert-max-results", type=int)
     parser.add_argument("--assert-max-payload-bytes", type=int)
     parser.add_argument("--assert-walk", action="store_true")
+    parser.add_argument("--assert-mine", action="store_true")
     return parser.parse_args()
 
 
@@ -321,8 +457,9 @@ def main() -> int:
     lifecycle = args.mod_settings is not None
     observation = args.assert_local_radius is not None
     walk = args.assert_walk
-    if sum((lifecycle, observation, walk)) != 1:
-        fail("runner invocation must be exactly one of lifecycle, observation, or walk/stop")
+    mine = args.assert_mine
+    if sum((lifecycle, observation, walk, mine)) != 1:
+        fail("runner invocation must be exactly one of lifecycle, observation, walk/stop, or mine")
     if lifecycle and not args.mod_settings.is_file():
         fail(f"mod-settings fixture does not exist: {args.mod_settings}")
     if observation and (args.assert_max_results is None or args.assert_max_payload_bytes is None):
@@ -330,31 +467,43 @@ def main() -> int:
 
     namespace = f"factorio-fixture-{secrets.token_hex(4)}"
     report_dir = ROOT / "test-reports" / namespace
-    mode = "lifecycle" if lifecycle else "observation" if observation else "walk-stop"
+    mode = "lifecycle" if lifecycle else "observation" if observation else "walk-stop" if walk else "mine"
     report: dict[str, Any] = {"namespace": namespace, "input_save_sha256": sha256(args.save), "mode": mode, "image": IMAGE}
     pod: str | None = None
     with tempfile.TemporaryDirectory(prefix="factorio-fixture-") as temporary:
         temporary_path = Path(temporary)
         archive = temporary_path / "bridge.zip"
         mod_list = temporary_path / "mod-list.json"
+        server_settings = temporary_path / "server-settings.json"
         package_bridge(archive)
         mod_list.write_text('{"mods":[{"name":"base","enabled":true},{"name":"factorio-agent-bridge","enabled":true}]}\n', encoding="utf-8")
+        write_fixture_server_settings(server_settings)
         password = secrets.token_urlsafe(32)
         try:
             kubectl(None, "apply", "-f", "-", input_text=manifest(namespace))
             kubectl(namespace, "wait", "--for=condition=Ready", "pod/save-stager", f"--timeout={TIMEOUT_SECONDS}s")
             kubectl(namespace, "cp", str(args.save), "save-stager:/fixture/saves/fixture.zip")
             kubectl(namespace, "delete", "pod", "save-stager", "--wait=true", f"--timeout={TIMEOUT_SECONDS}s")
-            kubectl(namespace, "create", "configmap", "bridge-inputs", f"--from-file=bridge.zip={archive}", f"--from-file=mod-list.json={mod_list}")
+            kubectl(namespace, "create", "configmap", "bridge-inputs", f"--from-file=bridge.zip={archive}", f"--from-file=mod-list.json={mod_list}", f"--from-file=server-settings.json={server_settings}")
             kubectl(namespace, "create", "secret", "generic", "rcon-password", f"--from-literal=rconpw={password}")
             kubectl(None, "apply", "-f", "-", input_text=server_manifest(namespace))
             pod = wait_for_pod(namespace)
+            # The copied save retains its previous paused state. This changes only
+            # server time flow in the disposable zero-client fixture; it does not
+            # create resources, alter inventories, move actors, or complete actions.
+            kubectl(namespace, "exec", pod, "--", "rcon", "/c game.tick_paused=false")
+            kubectl(namespace, "exec", pod, "--", "rcon", "/c game.tick_paused=false")
+            report["pause_probe_before"] = kubectl(namespace, "exec", pod, "--", "rcon", "/c rcon.print(tostring(game.tick_paused)..':'..tostring(game.tick))")
+            time.sleep(2)
+            report["pause_probe_after"] = kubectl(namespace, "exec", pod, "--", "rcon", "/c rcon.print(tostring(game.tick_paused)..':'..tostring(game.tick))")
             if lifecycle:
                 run_lifecycle(namespace, pod, report)
             elif observation:
                 run_observation(namespace, pod, report, args)
-            else:
+            elif walk:
                 run_walk_stop(namespace, pod, report)
+            else:
+                pod = run_mine(namespace, pod, report)
             report["result"] = "passed"
             return 0
         finally:
